@@ -4,6 +4,12 @@
 
 Beams Image Optimizer is a free, open-source image optimizer that runs in your browser. Convert, resize, and compress a batch of images with a clear record of the settings used for each result.
 
+## v0.1.1 local update
+
+- Adds the local Photo Studio editor foundation, with live adjustments, before/after comparison, undo, reset, rotation, and flips.
+- Unifies edited-image export with the existing format, quality, and maximum-size recipe.
+- Uses compact Adjust and Export panels with a stable canvas height and always-visible image import control.
+
 ## Privacy
 
 Image decoding, resizing, and encoding happen in your browser using standard browser APIs. This app does not include a backend, account system, image-upload API, analytics, or tracking. Hosting the app still requires a normal network request to load its HTML, CSS, and JavaScript; image bytes are not sent to a processing server by this application.
