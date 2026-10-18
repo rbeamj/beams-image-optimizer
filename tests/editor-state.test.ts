@@ -1,0 +1,3 @@
+import { describe, expect, it } from 'vitest';
+import { clampZoom, defaultEditorState, editorFilter, EditorHistory } from '../src/editor/state';
+describe('editor state', () => { it('clamps zoom to safe bounds', () => { expect(clampZoom(8)).toBe(4); expect(clampZoom(0)).toBe(.1); }); it('generates non-destructive canvas filters', () => expect(editorFilter({ ...defaultEditorState(), brightness: 10, contrast: 20, saturation: -5 })).toBe('brightness(110%) contrast(120%) saturate(95%)')); it('undoes and redoes state without mutating originals', () => { const history = new EditorHistory(); history.push({ ...history.current(), brightness: 20 }); expect(history.undo().brightness).toBe(0); expect(history.redo().brightness).toBe(20); }); });
