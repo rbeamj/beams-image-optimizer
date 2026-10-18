@@ -13,3 +13,4 @@ export function outputFilename(name: string, format: OutputFormat) {
   return `${stem}-optimized.${extensionFor(format)}`;
 }
 export function qualityNumber(quality = .82) { return Math.min(1, Math.max(.1, quality)); }
+export function formatPreservesTransparency(format: OutputFormat) { return format !== 'jpeg'; }

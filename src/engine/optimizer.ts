@@ -1,5 +1,6 @@
 import { dimensionsWithinEdge, mimeFor, outputFilename, qualityNumber } from './math';
 import type { ImageResult, OptimizeOptions, ProgressEvent } from './types';
+import { runBatch } from './batch';
 
 const throwIfAborted = (signal?: AbortSignal) => { if (signal?.aborted) throw new DOMException('Optimization cancelled.', 'AbortError'); };
 async function decode(file: File) {
@@ -23,7 +24,5 @@ export async function optimizeImage(file: File, options: OptimizeOptions): Promi
   return { blob, filename: outputFilename(file.name, options.format), sourceBytes: file.size, outputBytes: blob.size, sourceWidth, sourceHeight, width, height, format: options.format };
 }
 export async function optimizeBatch(files: File[], options: OptimizeOptions, onProgress?: (event: ProgressEvent) => void) {
-  const results: ImageResult[] = [];
-  for (let index = 0; index < files.length; index += 1) { const file = files[index]; try { const result = await optimizeImage(file, options); results.push(result); onProgress?.({ completed: index + 1, total: files.length, filename: file.name, result }); } catch (error) { onProgress?.({ completed: index + 1, total: files.length, filename: file.name, error: error instanceof Error ? error : new Error(String(error)) }); if ((error as DOMException).name === 'AbortError') throw error; } }
-  return results;
+  return runBatch(files, file => optimizeImage(file, options), onProgress) as Promise<ImageResult[]>;
 }

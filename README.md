@@ -7,7 +7,10 @@ A privacy-first, browser-local image optimizer. It converts JPEG, PNG, and WebP 
 - A reusable, UI-independent TypeScript engine in `src/engine/`
 - A static, accessible single-page application in `src/main.ts`
 - JPEG, PNG and WebP output; PNG/WebP retain transparency when browser encoders support it
-- Batch queue, presets, quality and maximum-edge controls, previews, byte statistics, cancellation, and per-image/all downloads
+- Original, 1K, 2K, 3K, 4K, and Custom maximum-long-edge controls that never upscale
+- Smallest File, Balanced, High Quality, Product Photo 1K, and Custom recipes
+- A photo-studio batch queue with light/dark presentation, previews, byte statistics, cancellation, and per-image/all downloads
+- Results retain the recipe used for that run, distinct from the settings currently selected for the next batch
 - GitHub Pages-compatible production output (`npm run build` produces `dist/` with relative asset paths)
 
 ## Run locally
