@@ -1,42 +1,66 @@
 # Beams Image Optimizer
 
-A privacy-first, browser-local image optimizer. It converts JPEG, PNG, and WebP images, resizes them using the embedded EXIF orientation where the browser supports it, and never uploads a file.
+> **Alpha software — features, interfaces, and behavior may change.**
 
-## What is included
+Beams Image Optimizer is a free, open-source image optimizer that runs in your browser. Convert, resize, and compress a batch of images with a clear record of the settings used for each result.
 
-- A reusable, UI-independent TypeScript engine in `src/engine/`
-- A static, accessible single-page application in `src/main.ts`
-- JPEG, PNG and WebP output; PNG/WebP retain transparency when browser encoders support it
-- Original, 1K, 2K, 3K, 4K, and Custom maximum-long-edge controls that never upscale
-- Smallest File, Balanced, High Quality, Product Photo 1K, and Custom recipes
-- A photo-studio batch queue with light/dark presentation, previews, byte statistics, cancellation, and per-image/all downloads
-- Results retain the recipe used for that run, distinct from the settings currently selected for the next batch
-- GitHub Pages-compatible production output (`npm run build` produces `dist/` with relative asset paths)
+## Privacy
 
-## Run locally
+Image decoding, resizing, and encoding happen in your browser using standard browser APIs. This app does not include a backend, account system, image-upload API, analytics, or tracking. Hosting the app still requires a normal network request to load its HTML, CSS, and JavaScript; image bytes are not sent to a processing server by this application.
+
+## Current alpha features
+
+- JPEG, PNG, and WebP input and output
+- Browser-local conversion, compression, and orientation-aware resizing
+- Original, 1K (1024px), 2K, 3K, 4K, and custom maximum-long-edge controls
+- Aspect-ratio preservation with no unintended upscaling
+- Adjustable output quality and Smallest File, Balanced, High Quality, Product Photo 1K, and Custom recipes
+- PNG/WebP transparency preservation where the browser encoder supports it; JPEG composites transparent pixels onto white
+- Batch queue, cancellation at safe processing boundaries, individual downloads, and download-all
+- Before/after previews, byte statistics, and the actual recipe retained for each processed image
+- Light and dark presentation
+
+## Browser support and limitations
+
+Use a current desktop or mobile browser with Canvas, Blob, and image-decoding support. WebP output and EXIF orientation behavior depend on the browser. Inputs are limited to JPEG, PNG, and WebP files up to 50 MB. A canvas encoder cannot be forcibly stopped mid-encode, so cancellation takes effect at the next safe processing boundary. This is an optimizer, not yet a full photo-editing studio.
+
+## Develop locally
 
 ```sh
+git clone https://github.com/rbeamj/beams-image-optimizer.git
+cd beams-image-optimizer
 npm install
 npm run dev
+```
+
+On Windows PowerShell systems that block `npm.ps1`, use `npm.cmd run dev` instead.
+
+## Verify a checkout
+
+```sh
 npm test
 npm run build
 ```
 
-## Reusing the engine
+The production-ready static files are written to `dist/`. The Vite configuration uses relative asset paths, making the build suitable for GitHub Pages.
 
-Import only from `src/engine`, which has no UI imports or application state:
+## Reuse the engine
+
+The browser-only TypeScript engine lives in `src/engine/` and has no UI imports or application state:
 
 ```ts
 import { optimizeImage } from './engine';
-const result = await optimizeImage(file, { format: 'webp', quality: .82, maxEdge: 2000 });
+const result = await optimizeImage(file, { format: 'webp', quality: 0.82, maxEdge: 2048 });
 ```
 
-`AbortSignal` can cancel between decode, draw, and encode operations. Browser canvas operations cannot be forcibly interrupted mid-encode, so cancellation completes at the next safe boundary.
+## Roadmap
 
-## Privacy and compatibility
+See [ROADMAP.md](ROADMAP.md) for the deliberately staged path toward a more capable local-first photo studio.
 
-All image bytes remain local to the browser. Output availability and metadata orientation handling ultimately depend on the browser's decoding and canvas capabilities. JPEG cannot represent transparent pixels; the engine composites those on white by default. There are no runtime dependencies. Development dependencies (Vite, TypeScript, Vitest, and `@types/node`) are MIT-licensed or Apache-2.0 licensed; verify their lockfile-resolved versions before any publication.
+## Contributing and issues
 
-## License
+Bug reports, reproducible browser-compatibility findings, documentation improvements, and focused pull requests are welcome. Please open an issue before proposing a large feature or adding a dependency, especially one with a license outside the project’s preferred policy.
 
-MIT. See [LICENSE](LICENSE).
+## License and notices
+
+This project is licensed under the [MIT License](LICENSE). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the dependency license review.

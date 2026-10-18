@@ -2,7 +2,7 @@
 
 ## Clean-room boundary
 
-This repository is an independent implementation. It does not import from, embed, or rely on Beams Vault source code, assets, configuration, product data, or services. It makes no network requests at runtime.
+This repository is an independent implementation. It does not import from, embed, or rely on Beams Vault source code, assets, configuration, product data, or services. Its application code does not send image bytes or make processing API calls; a hosted static site still requires ordinary browser requests to load its assets.
 
 ## Engine
 
