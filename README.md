@@ -28,7 +28,7 @@ Image decoding, resizing, and encoding happen in your browser using standard bro
 
 ## Photo Studio foundation
 
-The in-progress Photo Studio is a browser-local, non-destructive composition layer over the optimizer. Current foundation tools include exposure, contrast, saturation, hue, rotation, flips, zoom, center-crop presets, selectable text and shape layers, layer opacity and order controls, undo/redo, and combined export. Images are kept in the browser and the original input file is never modified.
+The in-progress Photo Studio is a browser-local, non-destructive single-image editor over the optimizer. Current Tranche 1 tools include freeform and ratio crop, straighten and flip, exposure, brightness, contrast, saturation, temperature, sharpness, grayscale and sepia filters, zoom, undo/redo, reset controls, and combined export. Images are kept in the browser and the original input file is never modified.
 
 ## Browser support and limitations
 

@@ -9,15 +9,15 @@ This roadmap is directional, not a promise or a delivery schedule. Beams Image O
 
 ## In progress: Photo Studio foundation
 
-- Professional browser canvas with selectable layers, text, basic shapes, opacity, ordering, undo/redo, zoom, pan, rotate, flip, center-crop presets, and local export
-- Non-destructive adjustment controls for exposure, contrast, saturation, and hue
+- Professional browser canvas with zoom, pan, rotate, flip, freeform and common-ratio crop, undo/redo, and local export
+- Non-destructive adjustment controls for exposure, brightness, contrast, saturation, temperature, sharpness, grayscale, and sepia
 - Preserve the original input; never silently change product details
 
 ## Next: Photo Studio core
 
-- Freeform crop and straighten handles, filters, color-temperature/tint controls, shadows, and a clear layer inspector
-- Text style controls, shape colors, alignment guides, duplicate/lock/hide layers, and project save/load
-- Better before/after splitter and export framing for all composed layers
+- Better before/after splitter and export framing
+- Project save/load and composition features such as text, shapes, overlays, layers, alignment, and templates
+- Manually controlled shadows and more advanced selective editing
 
 ## Longer term: local product-photo tools
 

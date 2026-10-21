@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { centerCrop, clampOpacity, normalizedAdjustment } from '../src/editor/tools';
+import { centerCrop, clampOpacity, normalizedAdjustment, sharpenMatrix, SnapshotHistory, temperatureMatrix } from '../src/editor/tools';
 
 describe('studio tool helpers', () => {
   it('creates a centered square crop without enlarging the source', () => {
@@ -13,5 +13,19 @@ describe('studio tool helpers', () => {
     expect(clampOpacity(150)).toBe(1);
     expect(normalizedAdjustment(-200)).toBe(-1);
     expect(normalizedAdjustment(35)).toBe(.35);
+  });
+  it('keeps temperature and sharpness adjustments bounded and predictable', () => {
+    expect(temperatureMatrix(100)[0]).toBeCloseTo(1.12);
+    expect(temperatureMatrix(100)[12]).toBeCloseTo(.88);
+    expect(sharpenMatrix(100)).toEqual([0, -.35, 0, -.35, 2.4, -.35, 0, -.35, 0]);
+  });
+  it('undos, redoes, and discards an abandoned editing branch', () => {
+    const history = new SnapshotHistory<number>();
+    history.push(1); history.push(2); history.push(3);
+    expect(history.undo()).toBe(2);
+    expect(history.redo()).toBe(3);
+    history.undo(); history.push(4);
+    expect(history.current()).toBe(4);
+    expect(history.canRedo()).toBe(false);
   });
 });
