@@ -20,6 +20,12 @@ export function sharpenMatrix(value: number) {
   return [0, -amount, 0, -amount, 1 + amount * 4, -amount, 0, -amount, 0];
 }
 
+/** Returns the object-relative clip geometry for the original side of a split comparison. */
+export function comparisonClip(width: number, height: number, position: number) {
+  const fraction = Math.min(.95, Math.max(.05, position / 100));
+  return { width: width * fraction, height, left: width * (fraction - 1) / 2, top: 0 };
+}
+
 export class SnapshotHistory<T> {
   private entries: T[] = [];
   private index = -1;

@@ -1,5 +1,5 @@
 import { Canvas, FabricImage, filters, Point, Rect } from 'fabric';
-import { centerCrop, normalizedAdjustment, sharpenMatrix, SnapshotHistory, temperatureMatrix, type CropRect } from './tools';
+import { centerCrop, comparisonClip, normalizedAdjustment, sharpenMatrix, SnapshotHistory, temperatureMatrix, type CropRect } from './tools';
 
 type Adjustments = {
   exposure: number; brightness: number; contrast: number; saturation: number;
@@ -15,9 +15,12 @@ export function initEditor() {
   const empty = document.querySelector<HTMLElement>('#editor-empty')!;
   const title = document.querySelector<HTMLElement>('#editor-file')!;
   const compare = document.querySelector<HTMLInputElement>('#compare')!;
+  const comparePosition = document.querySelector<HTMLInputElement>('#compare-position')!;
+  const comparePositionWrap = document.querySelector<HTMLElement>('#compare-position-wrap')!;
   const studio = new Canvas(element, { selection: false, preserveObjectStacking: true });
   const adjustments = defaults();
   let image: FabricImage | undefined;
+  let comparisonImage: FabricImage | undefined;
   let originalFile: File | undefined;
   let objectUrl = '';
   let original = { width: 0, height: 0 };
@@ -43,6 +46,7 @@ export function initEditor() {
     studio.setDimensions({ width: Math.max(1, stage.clientWidth), height: Math.max(1, stage.clientHeight) });
     if (image) centerImage();
     studio.requestRenderAll();
+    void updateComparison();
   };
   const sync = () => {
     (Object.entries(ids) as [keyof typeof ids, string][]).forEach(([key, id]) => {
@@ -60,30 +64,60 @@ export function initEditor() {
   };
   const remember = () => {
     if (restoring || cropFrame) return;
+    if (comparisonImage) studio.remove(comparisonImage);
     history.push({ canvas: studio.toJSON(), adjustments: { ...adjustments }, crop: { ...crop } });
+    if (comparisonImage) {
+      studio.add(comparisonImage);
+      studio.bringObjectToFront(comparisonImage);
+    }
     updateHistory();
+  };
+  const updateComparison = async () => {
+    comparePositionWrap.hidden = !compare.checked;
+    if (!image || !compare.checked) {
+      if (comparisonImage) studio.remove(comparisonImage);
+      comparisonImage = undefined;
+      studio.requestRenderAll();
+      return;
+    }
+    if (!comparisonImage) {
+      const currentUrl = objectUrl;
+      const overlay = await FabricImage.fromURL(currentUrl);
+      if (!compare.checked || currentUrl !== objectUrl || !image) return;
+      comparisonImage = overlay;
+      studio.add(comparisonImage);
+    }
+    const clip = comparisonClip(image.width!, image.height!, Number(comparePosition.value));
+    comparisonImage.set({
+      left: image.left, top: image.top, originX: image.originX, originY: image.originY,
+      scaleX: image.scaleX, scaleY: image.scaleY, angle: image.angle, flipX: image.flipX, flipY: image.flipY,
+      cropX: image.cropX, cropY: image.cropY, width: image.width, height: image.height,
+      selectable: false, evented: false,
+      clipPath: new Rect({ ...clip, originX: 'center', originY: 'center', absolutePositioned: false })
+    });
+    comparisonImage.filters = [];
+    comparisonImage.applyFilters();
+    studio.bringObjectToFront(comparisonImage);
+    if (cropFrame) studio.bringObjectToFront(cropFrame);
+    studio.requestRenderAll();
   };
   const applyAdjustments = () => {
     if (!image) return;
-    if (compare.checked) {
-      image.set({ angle: 0, flipX: false, flipY: false });
-      image.filters = [];
-    } else {
-      image.set({ angle: adjustments.rotation, flipX: adjustments.flipX, flipY: adjustments.flipY });
-      const list: object[] = [
-        new filters.Brightness({ brightness: normalizedAdjustment(adjustments.exposure) }),
-        new filters.Brightness({ brightness: normalizedAdjustment(adjustments.brightness) }),
-        new filters.Contrast({ contrast: normalizedAdjustment(adjustments.contrast) }),
-        new filters.Saturation({ saturation: normalizedAdjustment(adjustments.saturation) }),
-        new filters.ColorMatrix({ matrix: temperatureMatrix(adjustments.temperature) })
-      ];
-      if (adjustments.sharpness) list.push(new filters.Convolute({ matrix: sharpenMatrix(adjustments.sharpness) }));
-      if (adjustments.preset === 'grayscale') list.push(new filters.Grayscale());
-      if (adjustments.preset === 'sepia') list.push(new filters.Sepia());
-      image.filters = list as never;
-    }
+    image.set({ angle: adjustments.rotation, flipX: adjustments.flipX, flipY: adjustments.flipY });
+    const list: object[] = [
+      new filters.Brightness({ brightness: normalizedAdjustment(adjustments.exposure) }),
+      new filters.Brightness({ brightness: normalizedAdjustment(adjustments.brightness) }),
+      new filters.Contrast({ contrast: normalizedAdjustment(adjustments.contrast) }),
+      new filters.Saturation({ saturation: normalizedAdjustment(adjustments.saturation) }),
+      new filters.ColorMatrix({ matrix: temperatureMatrix(adjustments.temperature) })
+    ];
+    if (adjustments.sharpness) list.push(new filters.Convolute({ matrix: sharpenMatrix(adjustments.sharpness) }));
+    if (adjustments.preset === 'grayscale') list.push(new filters.Grayscale());
+    if (adjustments.preset === 'sepia') list.push(new filters.Sepia());
+    image.filters = list as never;
     image.applyFilters();
     studio.requestRenderAll();
+    void updateComparison();
   };
   const queuePreview = () => {
     if (previewFrame) cancelAnimationFrame(previewFrame);
@@ -108,6 +142,7 @@ export function initEditor() {
     const target = ratio ? centerCrop(bounds.width, bounds.height, ratio) : { x: bounds.width * .12, y: bounds.height * .12, width: bounds.width * .76, height: bounds.height * .76 };
     cropFrame = new Rect({ left: bounds.left + target.x, top: bounds.top + target.y, width: target.width, height: target.height, fill: '#ffffff16', stroke: '#f0a53e', strokeWidth: 2, strokeDashArray: [8, 6], lockRotation: true, transparentCorners: false, cornerColor: '#f0a53e', name: 'Crop frame' } as never);
     studio.add(cropFrame);
+    studio.bringObjectToFront(cropFrame);
     studio.setActiveObject(cropFrame);
     studio.requestRenderAll();
   };
@@ -138,6 +173,7 @@ export function initEditor() {
   const restore = async (snapshot?: Snapshot) => {
     if (!snapshot) return;
     restoring = true;
+    comparisonImage = undefined;
     await studio.loadFromJSON(snapshot.canvas as never);
     image = studio.getObjects()[0] as FabricImage | undefined;
     Object.assign(adjustments, snapshot.adjustments);
@@ -178,7 +214,8 @@ export function initEditor() {
   document.querySelector<HTMLInputElement>('#flip-x')!.addEventListener('change', (event) => { adjustments.flipX = (event.target as HTMLInputElement).checked; commit(); });
   document.querySelector<HTMLInputElement>('#flip-y')!.addEventListener('change', (event) => { adjustments.flipY = (event.target as HTMLInputElement).checked; commit(); });
   document.querySelector<HTMLSelectElement>('#filter-preset')!.addEventListener('change', (event) => { adjustments.preset = (event.target as HTMLSelectElement).value as Adjustments['preset']; commit(); });
-  compare.addEventListener('change', applyAdjustments);
+  compare.addEventListener('change', () => void updateComparison());
+  comparePosition.addEventListener('input', () => void updateComparison());
   document.querySelector('#undo')!.addEventListener('click', () => void restore(history.undo()));
   document.querySelector('#redo')!.addEventListener('click', () => void restore(history.redo()));
   document.querySelector('#reset-editor')!.addEventListener('click', () => { if (originalFile) void load(originalFile); });
@@ -187,8 +224,8 @@ export function initEditor() {
   document.querySelector('#reset-transform')!.addEventListener('click', () => resetGroup(['rotation', 'flipX', 'flipY']));
   document.querySelector('#rotate-left')!.addEventListener('click', () => { adjustments.rotation = Math.max(-180, adjustments.rotation - 90); sync(); commit(); });
   document.querySelector('#rotate-right')!.addEventListener('click', () => { adjustments.rotation = Math.min(180, adjustments.rotation + 90); sync(); commit(); });
-  document.querySelector('#fit')!.addEventListener('click', () => { if (image) { centerImage(); studio.setZoom(1); studio.requestRenderAll(); } });
-  document.querySelector('#actual')!.addEventListener('click', () => { if (image) { image.set({ scaleX: 1, scaleY: 1 }); studio.requestRenderAll(); } });
+  document.querySelector('#fit')!.addEventListener('click', () => { if (image) { centerImage(); studio.setZoom(1); studio.requestRenderAll(); void updateComparison(); } });
+  document.querySelector('#actual')!.addEventListener('click', () => { if (image) { image.set({ scaleX: 1, scaleY: 1 }); studio.requestRenderAll(); void updateComparison(); } });
   document.querySelector('#start-crop')!.addEventListener('click', () => startCrop());
   document.querySelectorAll<HTMLButtonElement>('[data-crop]').forEach((button) => button.addEventListener('click', () => startCrop(Number(button.dataset.crop))));
   document.querySelector('#apply-crop')!.addEventListener('click', applyCrop);
@@ -201,14 +238,16 @@ export function initEditor() {
     load(file: File) { void load(file); },
     async exportFile() {
       if (!image) return undefined;
-      const wasComparing = compare.checked;
-      compare.checked = false;
-      applyAdjustments();
+      const overlay = comparisonImage;
+      if (overlay) studio.remove(overlay);
       const width = image.getScaledWidth();
       const height = image.getScaledHeight();
       const dataUrl = studio.toDataURL({ format: 'png', left: image.left! - width / 2, top: image.top! - height / 2, width, height, multiplier: crop.width / width });
-      compare.checked = wasComparing;
-      applyAdjustments();
+      if (overlay) {
+        studio.add(overlay);
+        comparisonImage = overlay;
+        void updateComparison();
+      }
       const blob = await (await fetch(dataUrl)).blob();
       return new File([blob], `${title.textContent || 'image'}-edited.png`, { type: 'image/png' });
     },
