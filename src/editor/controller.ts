@@ -185,6 +185,8 @@ export function initEditor() {
   document.querySelector('#reset-light')!.addEventListener('click', () => resetGroup(['exposure', 'brightness', 'contrast']));
   document.querySelector('#reset-color')!.addEventListener('click', () => resetGroup(['saturation', 'temperature', 'sharpness', 'preset']));
   document.querySelector('#reset-transform')!.addEventListener('click', () => resetGroup(['rotation', 'flipX', 'flipY']));
+  document.querySelector('#rotate-left')!.addEventListener('click', () => { adjustments.rotation = Math.max(-180, adjustments.rotation - 90); sync(); commit(); });
+  document.querySelector('#rotate-right')!.addEventListener('click', () => { adjustments.rotation = Math.min(180, adjustments.rotation + 90); sync(); commit(); });
   document.querySelector('#fit')!.addEventListener('click', () => { if (image) { centerImage(); studio.setZoom(1); studio.requestRenderAll(); } });
   document.querySelector('#actual')!.addEventListener('click', () => { if (image) { image.set({ scaleX: 1, scaleY: 1 }); studio.requestRenderAll(); } });
   document.querySelector('#start-crop')!.addEventListener('click', () => startCrop());
