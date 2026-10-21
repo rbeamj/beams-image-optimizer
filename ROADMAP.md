@@ -6,12 +6,14 @@ This roadmap is directional, not a promise or a delivery schedule. Beams Image O
 
 - Format conversion, compression, resizing, quality controls, recipes, batch processing, and downloads
 - Clear per-result settings and byte statistics
+- A dedicated, simple workspace for quick import, recipe selection, batch export, and download
 
 ## In progress: Photo Studio foundation
 
 - Professional browser canvas with zoom, pan, rotate, flip, freeform and common-ratio crop, undo/redo, and local export
 - Non-destructive adjustment controls for exposure, brightness, contrast, saturation, temperature, sharpness, grayscale, and sepia
 - Preserve the original input; never silently change product details
+- A distinct professional workspace that shares Quick Optimize's browser-local engine and export recipes
 
 ## Next: Photo Studio core
 

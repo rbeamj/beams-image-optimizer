@@ -2,7 +2,7 @@
 
 > **Alpha software — features, interfaces, and behavior may change.**
 
-Beams Image Optimizer is a free, open-source image optimizer that runs in your browser. Convert, resize, and compress a batch of images with a clear record of the settings used for each result.
+Beams Image Optimizer is a free, open-source, browser-local product-image application with two experiences built on one reusable engine: **Quick Optimize** for fast batch exports and **Photo Studio** for careful single-image editing.
 
 ## v0.1.1 local update
 
@@ -16,6 +16,7 @@ Image decoding, resizing, and encoding happen in your browser using standard bro
 
 ## Current alpha features
 
+- A clear workspace choice: Quick Optimize for everyday batch work, and Photo Studio for detailed editing
 - JPEG, PNG, and WebP input and output
 - Browser-local conversion, compression, and orientation-aware resizing
 - Original, 1K (1024px), 2K, 3K, 4K, and custom maximum-long-edge controls
@@ -29,6 +30,8 @@ Image decoding, resizing, and encoding happen in your browser using standard bro
 ## Photo Studio foundation
 
 The in-progress Photo Studio is a browser-local, non-destructive single-image editor over the optimizer. Current Tranche 1 tools include freeform and ratio crop, straighten and flip, exposure, brightness, contrast, saturation, temperature, sharpness, grayscale and sepia filters, zoom, undo/redo, reset controls, and combined export. Images are kept in the browser and the original input file is never modified.
+
+Quick Optimize and Photo Studio intentionally share the same import queue, output recipes, and browser-only image engine. They are separate interfaces, not separate products or processing systems.
 
 ## Browser support and limitations
 
