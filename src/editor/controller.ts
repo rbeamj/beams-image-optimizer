@@ -1,19 +1,182 @@
-import { renderEditor } from './renderer';
-import { clampZoom, defaultEditorState, EditorHistory, type EditorState } from './state';
+import { Canvas, Circle, FabricImage, filters, IText, Point, Rect, type FabricObject } from 'fabric';
+import { centerCrop, clampOpacity, normalizedAdjustment } from './tools';
+
+type StudioObject = FabricObject & { name?: string; isBackground?: boolean };
+type Adjustments = { exposure: number; contrast: number; saturation: number; hue: number; rotation: number; flipX: boolean; flipY: boolean };
+const defaults = (): Adjustments => ({ exposure: 0, contrast: 0, saturation: 0, hue: 0, rotation: 0, flipX: false, flipY: false });
 
 export function initEditor() {
-  const canvas = document.querySelector<HTMLCanvasElement>('#editor-canvas')!; const stage = document.querySelector<HTMLElement>('#editor-stage')!; const empty = document.querySelector<HTMLElement>('#editor-empty')!; const title = document.querySelector<HTMLElement>('#editor-file')!; const compare = document.querySelector<HTMLInputElement>('#compare')!;
-  const history = new EditorHistory(); let image: HTMLImageElement | undefined; let url = ''; let dragging = false; let x = 0, y = 0; let draft: EditorState | undefined;
-  const controls: Record<string, HTMLInputElement> = { brightness: document.querySelector('#edit-brightness')!, contrast: document.querySelector('#edit-contrast')!, saturation: document.querySelector('#edit-saturation')!, rotation: document.querySelector('#edit-rotation')! };
-  const output = (id: string, value: number) => { document.querySelector(`#${id}-value`)!.textContent = `${value > 0 ? '+' : ''}${value}`; };
-  const state = () => draft ?? history.current(); const draw = () => { if (image) renderEditor(canvas, image, state(), compare.checked); document.querySelector<HTMLButtonElement>('#undo')!.disabled = !history.canUndo(); document.querySelector<HTMLButtonElement>('#redo')!.disabled = !history.canRedo(); };
-  const sync = () => { const s = state(); Object.entries(controls).forEach(([key, input]) => { input.value = String(s[key as keyof EditorState]); output(`edit-${key}`, Number(input.value)); }); document.querySelector<HTMLInputElement>('#flip-x')!.checked = s.flipX; document.querySelector<HTMLInputElement>('#flip-y')!.checked = s.flipY; document.querySelector('#zoom-value')!.textContent = `${Math.round(s.zoom * 100)}%`; draw(); };
-  const commit = (change: Partial<EditorState> = {}) => { history.push({ ...state(), ...change }); draft = undefined; sync(); };
-  const preview = (change: Partial<EditorState>) => { draft = { ...state(), ...change }; const [key, value] = Object.entries(change)[0]; if (key && typeof value === 'number') output(`edit-${key}`, value); draw(); };
-  Object.entries(controls).forEach(([key, input]) => { input.addEventListener('input', () => preview({ [key]: Number(input.value) })); input.addEventListener('change', () => commit()); });
-  document.querySelector<HTMLInputElement>('#flip-x')!.addEventListener('change', event => commit({ flipX: (event.target as HTMLInputElement).checked })); document.querySelector<HTMLInputElement>('#flip-y')!.addEventListener('change', event => commit({ flipY: (event.target as HTMLInputElement).checked }));
-  document.querySelector('#undo')!.addEventListener('click', () => { history.undo(); sync(); }); document.querySelector('#redo')!.addEventListener('click', () => { history.redo(); sync(); }); document.querySelector('#reset-editor')!.addEventListener('click', () => { history.reset(); sync(); }); document.querySelector('#fit')!.addEventListener('click', () => commit({ zoom: 1, panX: 0, panY: 0 })); document.querySelector('#actual')!.addEventListener('click', () => commit({ zoom: clampZoom(1 / Math.min(canvas.clientWidth / image!.naturalWidth, canvas.clientHeight / image!.naturalHeight)), panX: 0, panY: 0 }));
-  compare.addEventListener('change', draw); stage.addEventListener('wheel', event => { if (!image) return; event.preventDefault(); commit({ zoom: clampZoom(state().zoom * (event.deltaY < 0 ? 1.1 : .9)) }); }, { passive: false }); canvas.addEventListener('pointerdown', event => { dragging = true; x = event.clientX; y = event.clientY; canvas.setPointerCapture(event.pointerId); }); canvas.addEventListener('pointermove', event => { if (!dragging) return; commit({ panX: state().panX + event.clientX - x, panY: state().panY + event.clientY - y }); x = event.clientX; y = event.clientY; }); canvas.addEventListener('pointerup', () => { dragging = false; });
-  window.addEventListener('resize', draw); document.addEventListener('keydown', event => { if (!image || (event.target instanceof HTMLInputElement)) return; if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); event.shiftKey ? history.redo() : history.undo(); sync(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); history.redo(); sync(); } if (event.key === '0') { commit({ zoom: 1, panX: 0, panY: 0 }); } });
-  return { load(file: File) { if (url) URL.revokeObjectURL(url); url = URL.createObjectURL(file); image = new Image(); image.onload = () => { title.textContent = file.name; empty.hidden = true; canvas.hidden = false; history.reset(); sync(); }; image.src = url; }, async exportFile() { if (!image) return undefined; const out = document.createElement('canvas'); out.width = image.naturalWidth; out.height = image.naturalHeight; const ctx = out.getContext('2d'); if (!ctx) return undefined; const s = state(); ctx.translate(out.width / 2, out.height / 2); ctx.rotate(s.rotation * Math.PI / 180); ctx.scale(s.flipX ? -1 : 1, s.flipY ? -1 : 1); ctx.filter = `brightness(${100 + s.brightness}%) contrast(${100 + s.contrast}%) saturate(${100 + s.saturation}%)`; ctx.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2); const blob = await new Promise<Blob | null>(resolve => out.toBlob(resolve, 'image/png')); return blob ? new File([blob], `${title.textContent || 'image'}-edited.png`, { type: 'image/png' }) : undefined; } };
+  const element = document.querySelector<HTMLCanvasElement>('#editor-canvas')!;
+  const stage = document.querySelector<HTMLElement>('#editor-stage')!;
+  const empty = document.querySelector<HTMLElement>('#editor-empty')!;
+  const title = document.querySelector<HTMLElement>('#editor-file')!;
+  const comparison = document.querySelector<HTMLInputElement>('#compare')!;
+  const studio = new Canvas(element, { preserveObjectStacking: true, selection: true });
+  const adjustments = defaults();
+  let image: FabricImage | undefined;
+  let originalFile: File | undefined;
+  let source = { width: 0, height: 0 };
+  let objectUrl = '';
+  let snapshots: string[] = [];
+  let cursor = -1;
+  let restoring = false;
+
+  const controlIds: Record<keyof Pick<Adjustments, 'exposure' | 'contrast' | 'saturation' | 'hue' | 'rotation'>, string> = {
+    exposure: 'edit-exposure', contrast: 'edit-contrast', saturation: 'edit-saturation', hue: 'edit-hue', rotation: 'edit-rotation'
+  };
+  const setOutput = (id: string, value: number, suffix = '') => {
+    const output = document.querySelector<HTMLOutputElement>(`#${id}-value`);
+    if (output) output.textContent = `${value > 0 ? '+' : ''}${Math.round(value)}${suffix}`;
+  };
+  const resize = () => {
+    studio.setDimensions({ width: Math.max(1, stage.clientWidth), height: Math.max(1, stage.clientHeight) });
+    if (image && !image.left && !image.top) centerImage();
+    studio.requestRenderAll();
+  };
+  const background = () => studio.getObjects().find((item) => (item as StudioObject).isBackground) as FabricImage | undefined;
+  const centerImage = () => {
+    if (!image) return;
+    const scale = Math.min((studio.width! - 48) / image.width!, (studio.height! - 48) / image.height!);
+    image.set({ left: studio.width! / 2, top: studio.height! / 2, originX: 'center', originY: 'center', scaleX: scale, scaleY: scale });
+  };
+  const current = () => studio.getActiveObject() as StudioObject | undefined;
+  const updateLayers = () => {
+    const list = document.querySelector<HTMLElement>('#layer-list')!;
+    list.innerHTML = studio.getObjects().slice().reverse().map((item, reverseIndex) => {
+      const object = item as StudioObject;
+      const index = studio.getObjects().length - 1 - reverseIndex;
+      return `<button type="button" data-layer="${index}" class="${studio.getActiveObject() === item ? 'active' : ''}">${object.name || (object.isBackground ? 'Photo' : 'Layer')}</button>`;
+    }).join('') || '<span class="hint">No layers yet.</span>';
+    const opacity = document.querySelector<HTMLInputElement>('#object-opacity')!;
+    const opacityOutput = document.querySelector<HTMLOutputElement>('#object-opacity-value')!;
+    const selected = current();
+    opacity.disabled = !selected || !!selected.isBackground;
+    opacity.value = String(Math.round((selected?.opacity ?? 1) * 100));
+    opacityOutput.textContent = `${opacity.value}%`;
+  };
+  const updateHistoryButtons = () => {
+    document.querySelector<HTMLButtonElement>('#undo')!.disabled = cursor <= 0;
+    document.querySelector<HTMLButtonElement>('#redo')!.disabled = cursor >= snapshots.length - 1;
+  };
+  const remember = () => {
+    if (restoring) return;
+    snapshots = snapshots.slice(0, cursor + 1);
+    snapshots.push(JSON.stringify(studio.toJSON()));
+    cursor = snapshots.length - 1;
+    updateHistoryButtons();
+    updateLayers();
+  };
+  const restore = async (at: number) => {
+    if (at < 0 || at >= snapshots.length) return;
+    restoring = true;
+    await studio.loadFromJSON(JSON.parse(snapshots[at]));
+    image = background();
+    cursor = at;
+    restoring = false;
+    studio.requestRenderAll();
+    updateHistoryButtons();
+    updateLayers();
+  };
+  const applyAdjustments = () => {
+    if (!image) return;
+    image.set({ angle: adjustments.rotation, flipX: adjustments.flipX, flipY: adjustments.flipY });
+    image.filters = comparison.checked ? [] : [
+      new filters.Brightness({ brightness: normalizedAdjustment(adjustments.exposure) }),
+      new filters.Contrast({ contrast: normalizedAdjustment(adjustments.contrast) }),
+      new filters.Saturation({ saturation: normalizedAdjustment(adjustments.saturation) }),
+      new filters.HueRotation({ rotation: normalizedAdjustment(adjustments.hue) })
+    ];
+    image.applyFilters();
+    studio.requestRenderAll();
+  };
+  const commitAdjustments = () => { applyAdjustments(); remember(); };
+  const addObject = (object: StudioObject) => {
+    studio.add(object);
+    studio.setActiveObject(object);
+    studio.requestRenderAll();
+    remember();
+  };
+  const setCrop = (ratio?: number) => {
+    if (!image || !source.width || !source.height) return;
+    if (!ratio) {
+      image.set({ cropX: 0, cropY: 0, width: source.width, height: source.height });
+    } else {
+      const crop = centerCrop(source.width, source.height, ratio);
+      image.set({ cropX: crop.x, cropY: crop.y, width: crop.width, height: crop.height });
+    }
+    centerImage();
+    studio.requestRenderAll();
+    remember();
+  };
+  const load = async (file: File) => {
+    originalFile = file;
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = URL.createObjectURL(file);
+    studio.clear();
+    image = await FabricImage.fromURL(objectUrl);
+    source = { width: image.width!, height: image.height! };
+    image.set({ isBackground: true, name: 'Photo', selectable: false, evented: false, originX: 'center', originY: 'center' } as Partial<StudioObject>);
+    centerImage();
+    studio.add(image);
+    title.textContent = file.name;
+    empty.hidden = true;
+    element.hidden = false;
+    Object.assign(adjustments, defaults());
+    Object.entries(controlIds).forEach(([key, id]) => {
+      const input = document.querySelector<HTMLInputElement>(`#${id}`)!;
+      input.value = '0';
+      setOutput(id, 0);
+    });
+    document.querySelector<HTMLInputElement>('#flip-x')!.checked = false;
+    document.querySelector<HTMLInputElement>('#flip-y')!.checked = false;
+    snapshots = [];
+    cursor = -1;
+    applyAdjustments();
+    remember();
+  };
+
+  resize();
+  new ResizeObserver(resize).observe(stage);
+  (Object.entries(controlIds) as [keyof typeof controlIds, string][]).forEach(([key, id]) => {
+    const input = document.querySelector<HTMLInputElement>(`#${id}`)!;
+    input.addEventListener('input', () => { adjustments[key] = Number(input.value); setOutput(id, adjustments[key]); applyAdjustments(); });
+    input.addEventListener('change', commitAdjustments);
+  });
+  document.querySelector<HTMLInputElement>('#flip-x')!.addEventListener('change', (event) => { adjustments.flipX = (event.target as HTMLInputElement).checked; commitAdjustments(); });
+  document.querySelector<HTMLInputElement>('#flip-y')!.addEventListener('change', (event) => { adjustments.flipY = (event.target as HTMLInputElement).checked; commitAdjustments(); });
+  comparison.addEventListener('change', applyAdjustments);
+  document.querySelector('#undo')!.addEventListener('click', () => void restore(cursor - 1));
+  document.querySelector('#redo')!.addEventListener('click', () => void restore(cursor + 1));
+  document.querySelector('#reset-editor')!.addEventListener('click', () => { if (!originalFile) return; void load(originalFile); });
+  document.querySelector('#fit')!.addEventListener('click', () => { if (!image) return; centerImage(); studio.requestRenderAll(); });
+  document.querySelector('#actual')!.addEventListener('click', () => { if (!image) return; image.set({ scaleX: 1, scaleY: 1 }); studio.requestRenderAll(); });
+  document.querySelector('#add-text')!.addEventListener('click', () => addObject(new IText('Double-click to edit', { left: studio.width! / 2, top: studio.height! / 2, originX: 'center', originY: 'center', fill: '#ffffff', fontSize: 34, name: 'Text' } as never) as StudioObject));
+  document.querySelector('#add-rectangle')!.addEventListener('click', () => addObject(new Rect({ left: studio.width! / 2, top: studio.height! / 2, originX: 'center', originY: 'center', width: 180, height: 120, fill: '#f0a53e99', stroke: '#ffffff', strokeWidth: 2, name: 'Rectangle' } as never) as StudioObject));
+  document.querySelector('#add-circle')!.addEventListener('click', () => addObject(new Circle({ left: studio.width! / 2, top: studio.height! / 2, originX: 'center', originY: 'center', radius: 70, fill: '#3c8f89aa', stroke: '#ffffff', strokeWidth: 2, name: 'Circle' } as never) as StudioObject));
+  document.querySelector<HTMLInputElement>('#object-opacity')!.addEventListener('input', (event) => { const selected = current(); if (!selected || selected.isBackground) return; selected.set({ opacity: clampOpacity(Number((event.target as HTMLInputElement).value)) }); studio.requestRenderAll(); updateLayers(); });
+  document.querySelector<HTMLInputElement>('#object-opacity')!.addEventListener('change', remember);
+  document.querySelector('#bring-forward')!.addEventListener('click', () => { const selected = current(); if (!selected || selected.isBackground) return; studio.bringObjectForward(selected); remember(); });
+  document.querySelector('#send-backward')!.addEventListener('click', () => { const selected = current(); if (!selected || selected.isBackground) return; studio.sendObjectBackwards(selected); remember(); });
+  document.querySelector('#delete-layer')!.addEventListener('click', () => { const selected = current(); if (!selected || selected.isBackground) return; studio.remove(selected); remember(); });
+  document.querySelectorAll<HTMLButtonElement>('[data-crop]').forEach((button) => button.addEventListener('click', () => setCrop(Number(button.dataset.crop))));
+  document.querySelector('#reset-crop')!.addEventListener('click', () => setCrop());
+  document.querySelector('#layer-list')!.addEventListener('click', (event) => { const index = Number((event.target as HTMLElement).dataset.layer); const item = studio.getObjects()[index]; if (item) { studio.setActiveObject(item); studio.requestRenderAll(); updateLayers(); } });
+  studio.on('object:modified', remember);
+  studio.on('selection:created', updateLayers);
+  studio.on('selection:updated', updateLayers);
+  studio.on('selection:cleared', updateLayers);
+  studio.on('mouse:wheel', (event) => { const wheel = event.e as WheelEvent; wheel.preventDefault(); const point = new Point(wheel.offsetX, wheel.offsetY); const next = Math.min(4, Math.max(.2, studio.getZoom() * (wheel.deltaY < 0 ? 1.1 : .9))); studio.zoomToPoint(point, next); document.querySelector('#zoom-value')!.textContent = `${Math.round(next * 100)}%`; });
+  document.addEventListener('keydown', (event) => { if (!(event.ctrlKey || event.metaKey) || event.target instanceof HTMLInputElement) return; if (event.key.toLowerCase() === 'z') { event.preventDefault(); void restore(event.shiftKey ? cursor + 1 : cursor - 1); } if (event.key.toLowerCase() === 'y') { event.preventDefault(); void restore(cursor + 1); } });
+
+  return {
+    load(file: File) { void load(file); },
+    async exportFile() {
+      if (!image) return undefined;
+      const width = image.getScaledWidth();
+      const height = image.getScaledHeight();
+      const dataUrl = studio.toDataURL({ format: 'png', left: image.left! - width / 2, top: image.top! - height / 2, width, height, multiplier: source.width / width });
+      const blob = await (await fetch(dataUrl)).blob();
+      return new File([blob], `${title.textContent || 'image'}-edited.png`, { type: 'image/png' });
+    }
+  };
 }

@@ -26,9 +26,13 @@ Image decoding, resizing, and encoding happen in your browser using standard bro
 - Before/after previews, byte statistics, and the actual recipe retained for each processed image
 - Light and dark presentation
 
+## Photo Studio foundation
+
+The in-progress Photo Studio is a browser-local, non-destructive composition layer over the optimizer. Current foundation tools include exposure, contrast, saturation, hue, rotation, flips, zoom, center-crop presets, selectable text and shape layers, layer opacity and order controls, undo/redo, and combined export. Images are kept in the browser and the original input file is never modified.
+
 ## Browser support and limitations
 
-Use a current desktop or mobile browser with Canvas, Blob, and image-decoding support. WebP output and EXIF orientation behavior depend on the browser. Inputs are limited to JPEG, PNG, and WebP files up to 50 MB. A canvas encoder cannot be forcibly stopped mid-encode, so cancellation takes effect at the next safe processing boundary. This is an optimizer, not yet a full photo-editing studio.
+Use a current desktop or mobile browser with Canvas, Blob, and image-decoding support. WebP output and EXIF orientation behavior depend on the browser. Inputs are limited to JPEG, PNG, and WebP files up to 50 MB. A canvas encoder cannot be forcibly stopped mid-encode, so cancellation takes effect at the next safe processing boundary. This is an alpha editor. Advanced background-removal, scenes, and upscaling are deliberately not included until their model weights, commercial-use terms, redistribution terms, performance, and privacy tradeoffs are independently reviewed.
 
 ## Develop locally
 

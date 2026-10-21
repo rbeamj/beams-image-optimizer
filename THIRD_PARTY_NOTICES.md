@@ -1,6 +1,13 @@
 # Third-party dependency review
 
-Release review date: 2026-10-18. The production bundle has no runtime package dependencies; its image work uses browser APIs. Development and build dependencies are locked in `package-lock.json`.
+Review date: 2026-10-21. The production bundle uses Fabric.js 7.4.0 (MIT) for its interactive Photo Studio canvas. Fabric.js is used only in the browser and adds no service, telemetry, image upload, or AI model. Development and build dependencies are locked in `package-lock.json`.
+
+## Fabric.js 7.4.0
+
+- Source: https://github.com/fabricjs/fabric.js
+- License: MIT. The license text was verified against the upstream repository and installed package metadata.
+- Security: `npm audit --omit=dev` reported zero vulnerabilities after selecting the patched 7.4.0 release. Earlier Fabric 6.x candidates were rejected because of published SVG serialization advisories.
+- Distribution: Fabric.js is bundled into the static browser application. Its optional Node-canvas packages are not used by the browser build.
 
 ## Preferred licenses found
 
