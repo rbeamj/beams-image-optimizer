@@ -10,6 +10,9 @@ type Snapshot = { canvas: unknown; adjustments: Adjustments; crop: CropRect };
 const defaults = (): Adjustments => ({ exposure: 0, brightness: 0, contrast: 0, saturation: 0, temperature: 0, sharpness: 0, rotation: 0, flipX: false, flipY: false, preset: 'none' });
 
 export function initEditor() {
+  const panelTabs = document.querySelector<HTMLElement>('.editor-panel .panel-tabs')!;
+  panelTabs.insertAdjacentHTML('beforeend', '<button data-panel-tab="background" type="button">Background</button>');
+  document.querySelector<HTMLElement>('[data-editor-panel="export"]')!.insertAdjacentHTML('beforebegin', '<div data-editor-panel="background" hidden><fieldset><legend>Product background</legend><p class="hint">Use a solid background with images that already have transparent pixels. Your original remains unchanged.</p><label>Color <input id="background-color" type="color" value="#ffffff" /></label><div class="tool-buttons"><button id="apply-background" type="button">Apply color</button><button id="clear-background" type="button">Transparent</button></div><p class="hint">Automatic background removal is not included until a browser-local model passes license and performance review.</p></fieldset></div>');
   const element = document.querySelector<HTMLCanvasElement>('#editor-canvas')!;
   const stage = document.querySelector<HTMLElement>('#editor-stage')!;
   const empty = document.querySelector<HTMLElement>('#editor-empty')!;
@@ -20,6 +23,7 @@ export function initEditor() {
   const studio = new Canvas(element, { selection: false, preserveObjectStacking: true });
   const adjustments = defaults();
   let image: FabricImage | undefined;
+  let background: Rect | undefined;
   let comparisonImage: FabricImage | undefined;
   let originalFile: File | undefined;
   let objectUrl = '';
@@ -41,6 +45,7 @@ export function initEditor() {
     if (!image) return;
     const scale = Math.min((studio.width! - 48) / image.width!, (studio.height! - 48) / image.height!);
     image.set({ left: studio.width! / 2, top: studio.height! / 2, originX: 'center', originY: 'center', scaleX: scale, scaleY: scale });
+    syncBackground();
   };
   const resize = () => {
     studio.setDimensions({ width: Math.max(1, stage.clientWidth), height: Math.max(1, stage.clientHeight) });
@@ -61,6 +66,28 @@ export function initEditor() {
   const updateHistory = () => {
     document.querySelector<HTMLButtonElement>('#undo')!.disabled = !history.canUndo();
     document.querySelector<HTMLButtonElement>('#redo')!.disabled = !history.canRedo();
+  };
+  const syncBackground = () => {
+    if (!background || !image) return;
+    background.set({ left: image.left, top: image.top, originX: 'center', originY: 'center', width: image.width, height: image.height, scaleX: image.scaleX, scaleY: image.scaleY, angle: image.angle });
+    studio.sendObjectToBack(background);
+  };
+  const applyBackground = (fill: string) => {
+    if (!image) return;
+    if (!background) {
+      background = new Rect({ selectable: false, evented: false, originX: 'center', originY: 'center', fill });
+      studio.add(background);
+    }
+    background.set({ fill, visible: true });
+    syncBackground();
+    studio.requestRenderAll();
+    remember();
+  };
+  const clearBackground = () => {
+    if (!background) return;
+    background.set({ visible: false });
+    studio.requestRenderAll();
+    remember();
   };
   const remember = () => {
     if (restoring || cropFrame) return;
@@ -116,6 +143,7 @@ export function initEditor() {
     if (adjustments.preset === 'sepia') list.push(new filters.Sepia());
     image.filters = list as never;
     image.applyFilters();
+    syncBackground();
     studio.requestRenderAll();
     void updateComparison();
   };
@@ -175,7 +203,8 @@ export function initEditor() {
     restoring = true;
     comparisonImage = undefined;
     await studio.loadFromJSON(snapshot.canvas as never);
-    image = studio.getObjects()[0] as FabricImage | undefined;
+    image = studio.getObjects().find(object => object.type === 'image') as FabricImage | undefined;
+    background = studio.getObjects().find(object => object.type === 'rect') as Rect | undefined;
     Object.assign(adjustments, snapshot.adjustments);
     crop = { ...snapshot.crop };
     restoring = false;
@@ -188,6 +217,7 @@ export function initEditor() {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = URL.createObjectURL(file);
     studio.clear();
+    background = undefined;
     image = await FabricImage.fromURL(objectUrl);
     original = { width: image.width!, height: image.height! };
     crop = { x: 0, y: 0, width: original.width, height: original.height };
@@ -214,6 +244,8 @@ export function initEditor() {
   document.querySelector<HTMLInputElement>('#flip-x')!.addEventListener('change', (event) => { adjustments.flipX = (event.target as HTMLInputElement).checked; commit(); });
   document.querySelector<HTMLInputElement>('#flip-y')!.addEventListener('change', (event) => { adjustments.flipY = (event.target as HTMLInputElement).checked; commit(); });
   document.querySelector<HTMLSelectElement>('#filter-preset')!.addEventListener('change', (event) => { adjustments.preset = (event.target as HTMLSelectElement).value as Adjustments['preset']; commit(); });
+  document.querySelector('#apply-background')!.addEventListener('click', () => applyBackground(document.querySelector<HTMLInputElement>('#background-color')!.value));
+  document.querySelector('#clear-background')!.addEventListener('click', clearBackground);
   compare.addEventListener('change', () => void updateComparison());
   comparePosition.addEventListener('input', () => void updateComparison());
   document.querySelector('#undo')!.addEventListener('click', () => void restore(history.undo()));

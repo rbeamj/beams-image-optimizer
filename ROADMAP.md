@@ -24,6 +24,7 @@ This roadmap is directional, not a promise or a delivery schedule. Beams Image O
 ## Longer term: local product-photo tools
 
 - Browser-local background removal and transparent backgrounds
+- Background-removal model adoption only after separate code-and-weights license, redistribution, browser-performance, and product-photo quality validation; see [background-removal-evaluation.md](docs/background-removal-evaluation.md)
 - Background replacement, product-photo scenes, and manually controlled shadows
 - Batch editing and reusable product-photo templates
 - AI enhancements and optional local upscaling only after source, model-weight, commercial-use, redistribution, device-support, and privacy terms are independently verified
