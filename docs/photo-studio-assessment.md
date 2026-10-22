@@ -1,35 +1,32 @@
 # Photo Studio technical assessment
 
-## Existing baseline
+## Tranche 1 architecture
 
-The alpha already provides a clean browser-only optimizer engine, orientation-aware decode, bounded resize, JPEG/PNG/WebP export, file validation, sequential batch processing, cancellation boundaries, and a responsive static UI. The engine is independent of the UI and remains the export owner for the optimizer flow.
+Photo Studio is a browser-local, non-destructive single-image editor. The reusable `src/engine/` optimizer still owns format conversion, quality, resizing, and batch processing. The studio creates an edited browser `File` only when the user exports; the original input is retained locally and never modified.
 
-## Tranche 1 decision
+Fabric.js 7.4.0 supplies the permissively licensed interactive canvas and image-filter pipeline. Application-owned editor helpers remain separate in `src/editor/tools.ts`, where crop geometry and adjustment matrices can be tested without UI code.
 
-Use browser Canvas APIs for the editor foundation. They are already required by the optimizer, have no added network/model/download cost, and are sufficient for a single-image, non-destructive transform and adjustment stack. The editor state is pure TypeScript and rendering is isolated from UI state, so a later object/layer adapter can replace or extend the renderer without changing the optimizer.
+## Included in this tranche
 
-Tranche 1 includes image import, canvas fit/actual-size zoom, wheel zoom and drag pan, original/edited comparison, non-destructive brightness/contrast/saturation/rotation/flip state, undo/redo/reset, keyboard shortcuts, and edited-PNG export. Crop, text, shapes, and multi-layer composition begin in later tranches.
+- Import directly into Studio or open an existing Quick Optimize item for editing
+- Zoom, pan, fit, 100% view, Show original comparison, and undo/redo
+- Freeform and common-ratio center crop, straighten, rotate, and flips
+- Exposure, brightness, contrast, saturation, temperature, sharpness, grayscale, and sepia
+- JPEG, PNG, and WebP export through the existing quality and maximum-long-edge controls
+- Browser-local processing, original preservation, and normal Quick Optimize batch behavior
 
-## Dependency evaluation
+## Deferred by boundary
 
-| Candidate | License | Decision | Rationale |
-| --- | --- | --- | --- |
-| Fabric.js | MIT | Defer to Tranche 3 | Strong object, transform, serialization, and SVG support; suitable for text, overlays, and layers. |
-| Konva | MIT | Defer to Tranche 3 | Strong layer, transform, and interaction model; compare bundle/performance against Fabric when composition begins. |
-| Cropper.js | MIT | Defer to Tranche 2 | Purpose-built crop UI, but crop is outside the editor-foundation scope. |
-| Pica | MIT | Defer | Consider if high-quality downsampling benchmarks beat current browser canvas on representative product images. |
-| ONNX Runtime Web | MIT | Defer to Tranche 4/5 | Browser inference is feasible, but models, WASM assets, model-weight license, download size, CPU performance, and edge quality require a separate review. |
-| Transformers.js | Apache-2.0 | Defer to Tranche 5 | Runtime is permissive, but every selected model’s weights and commercial redistribution terms must be separately verified. |
+Text, stickers, shapes, multilayer composition, AI background removal/replacement, generative services, object removal, upscaling, product-photo scenes, shadows, Photo Studio batch edits, cloud storage, accounts, and paid services are deliberately not implemented in Tranche 1.
 
-No new dependency is adopted in Tranche 1. GPL/AGPL components are excluded. No model weights are included.
+## Dependency review
 
-## Compatibility and performance
+| Candidate | License | Decision |
+| --- | --- | --- |
+| Fabric.js 7.4.0 | MIT | Adopted for the interactive canvas and browser filters; production dependency audit is clean. |
+| Cropper.js | MIT | Defer; Fabric crop frame meets the first-tranche need without another dependency. |
+| Pica | MIT | Defer; benchmark before adding an alternate downsampler. |
+| ONNX Runtime Web | MIT | Defer with AI; model weights and commercial/redistribution terms require a separate review. |
+| Transformers.js | Apache-2.0 | Defer with AI; every selected model requires an independent license review. |
 
-Modern browsers with Canvas 2D, Blob, and image decoding are required. Canvas filter support is used for previews; export rendering uses the same browser Canvas 2D path. Large images consume decoded pixel memory, so the existing 50 MB input limit remains and future work should add decoded-dimension limits, OffscreenCanvas/worker evaluation, and representative CPU/integrated-GPU benchmarks before local AI is considered.
-
-## Remaining milestones
-
-1. Core editing: crop, straighten, resize, and additional adjustment controls.
-2. Composition: text, shapes, overlays, layers, alignment, templates.
-3. Product photo: locally evaluated background removal, replacement, shadows, marketplace presets.
-4. Advanced enhancements: opt-in models only after model-weight, performance, and visual-quality benchmarks.
+No AI model weights, remote processing service, image-upload backend, telemetry, or Beams Vault material is included.

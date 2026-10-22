@@ -2,20 +2,20 @@
 
 > **Alpha software — features, interfaces, and behavior may change.**
 
-Beams Image Optimizer is a free, open-source image optimizer that runs in your browser. Convert, resize, and compress a batch of images with a clear record of the settings used for each result.
+Beams Image Optimizer is a free, open-source, browser-local product-image application with two experiences built on one reusable engine: **Quick Optimize** for fast batch exports and **Photo Studio** for careful single-image editing.
 
-## v0.1.1 local update
+## v0.1.2
 
-- Adds the local Photo Studio editor foundation, with live adjustments, before/after comparison, undo, reset, rotation, and flips.
-- Unifies edited-image export with the existing format, quality, and maximum-size recipe.
-- Uses compact Adjust and Export panels with a stable canvas height and always-visible image import control.
+- Photo Studio becomes a six-step product-photo workflow: AI cutout (BiRefNet with hardware-adaptive Auto/Fast/Quality), Magic Click refinement (MobileSAM), object cleanup (MI-GAN), Real-ESRGAN enhance, a scene editor and 2K export.
+- All AI runs in the browser on demand. Models download once from their publishers on Hugging Face, are checksum-verified and cached; no weights are bundled.
 
 ## Privacy
 
-Image decoding, resizing, and encoding happen in your browser using standard browser APIs. This app does not include a backend, account system, image-upload API, analytics, or tracking. Hosting the app still requires a normal network request to load its HTML, CSS, and JavaScript; image bytes are not sent to a processing server by this application.
+Image decoding, resizing, and encoding happen in your browser using standard browser APIs. This app does not include a backend, account system, image-upload API, analytics, or tracking. Hosting the app still requires a normal network request to load its HTML, CSS, and JavaScript, and the optional AI tools download their model files from Hugging Face the first time you use them; image bytes are never sent to a processing server by this application.
 
 ## Current alpha features
 
+- A clear workspace choice: Quick Optimize for everyday batch work, and Photo Studio for detailed editing
 - JPEG, PNG, and WebP input and output
 - Browser-local conversion, compression, and orientation-aware resizing
 - Original, 1K (1024px), 2K, 3K, 4K, and custom maximum-long-edge controls
@@ -26,9 +26,48 @@ Image decoding, resizing, and encoding happen in your browser using standard bro
 - Before/after previews, byte statistics, and the actual recipe retained for each processed image
 - Light and dark presentation
 
+## Photo Studio
+
+Photo Studio is a browser-local, non-destructive product-photo editor. Work through the numbered steps in order, or open any step directly:
+
+1. **Cutout** – AI background removal (opt-in).
+2. **Refine** – Magic Click fixes the cutout: click to bring back or remove an area, Shift+click to exclude a spot, *Try another shape* to cycle MobileSAM's alternatives, then Accept or Reject.
+3. **Cleanup** – paint over a blemish, label or object and press Remove; MI-GAN fills it. Only painted pixels change. Accept or Reject, and repeat as often as needed.
+4. **Enhance** – optional Real-ESRGAN upscale of small photos to 1024 or 2048 px, with a before/after against a standard resize.
+5. **Scene** – transparent, solid, gradient or uploaded backgrounds; marketplace/social/banner/catalog presets; frame ratio, padding, position, subject size and rotation; ground-contact or drop shadows.
+6. **Export** – the shared format/quality recipes, capped at 2048 px for Studio exports. The export is rendered from the same scene as the preview.
+
+Light, Color, Transform and Crop adjustments work at any point. Every step is undoable, before/after comparison is available throughout, and the original file is never modified. The subject is kept as layers (photo pixels plus a cutout matte), so you can redo the cutout, refine it, clean up the photo or enhance it without losing your scene settings. AI previews are never written into history or exports until accepted.
+
+### Local AI models
+
+All inference runs in the browser with ONNX Runtime Web in per-model Web Workers. Nothing is uploaded and nothing runs automatically. Each model is downloaded only when its feature is first used, directly from its publisher's Hugging Face repository at a pinned revision, checked against a SHA-256 digest, and then kept in the browser's Cache Storage. Workers are terminated to free memory when a model fails or is replaced.
+
+| Feature | Models | Runtime |
+| --- | --- | --- |
+| Cutout | BiRefNet lite 1024 (Quality), BiRefNet lite 512 (Fast), U²-Netp (last resort) | WebGPU (fp16 when `shader-f16` works, otherwise fp32), WASM fallback |
+| Refine | MobileSAM encoder + multi-mask decoder | WebGPU, WASM fallback |
+| Cleanup | MI-GAN (512 px context window) | WebGPU, WASM fallback |
+| Enhance | Real-ESRGAN `realesr-general-x4v3` | WASM |
+
+**Auto / Fast / Quality.** Auto probes the device (WebGPU adapter, `shader-f16`, buffer limits, device memory, mobile) and remembers per-device outcomes and timings. It prefers Quality 1024, falls back to Fast 512 and then U²-Netp after an out-of-memory error, timeout or unsupported operator, and skips configurations that failed on this device in the last 14 days. GPUs without `shader-f16` (for example NVIDIA Pascal) download the published fp32 BiRefNet lite 1024 export and apply a small structure-only graph patch in the browser (`public/patches/`, no weights; generated by `scripts/make-graph-patch.py`) so it fits WebGPU limits; the result is verified by checksum and is numerically identical to the original. Quality 1024 is not offered on WASM because it exceeds the 4 GB WebAssembly heap.
+
+The hosted app needs no setup. Optionally, install models locally to work offline or to self-host them (weights are never committed and the build strips them unless allowlisted); the app prefers files listed in `models/manifest.json` over upstream downloads:
+
+```sh
+npm run fetch:models -- --all      # or --fast, --quality, --sam, --migan, --enhance
+npm run fetch:models -- --all --from <dir>   # copy from a local folder instead of downloading
+```
+
+`--quality` downloads the fp16 BiRefNet 1024 model and builds the fp32 WebGPU variant locally (needs `uv` or Python 3 with `onnx` and `numpy`). To deliberately host specific weights, list them at build time, e.g. `BEAMS_INCLUDE_MODELS=u2netp.onnx npm run build`; only listed files are copied and the model manifest is filtered to match.
+
+**Licensing.** Model code and released weights are published under MIT, Apache-2.0 or BSD-3-Clause; keep their notices if you host the weights. No weights ship with the app or are committed to the repository. Training-dataset terms, which are separate from the weight licenses, and the few open questions are recorded in [docs/model-licensing.md](docs/model-licensing.md). Measured performance is in [docs/photo-studio-performance.md](docs/photo-studio-performance.md); model comparisons are in `experiments/bg-eval/REPORT.md` and `docs/background-removal-evaluation.md`.
+
+Quick Optimize and Photo Studio intentionally share the same import queue, output recipes, and browser-only image engine. They are separate interfaces, not separate products or processing systems.
+
 ## Browser support and limitations
 
-Use a current desktop or mobile browser with Canvas, Blob, and image-decoding support. WebP output and EXIF orientation behavior depend on the browser. Inputs are limited to JPEG, PNG, and WebP files up to 50 MB. A canvas encoder cannot be forcibly stopped mid-encode, so cancellation takes effect at the next safe processing boundary. This is an optimizer, not yet a full photo-editing studio.
+Use a current desktop or mobile browser with Canvas, Blob, and image-decoding support. WebGPU (Chrome/Edge 113+, Safari 18+) makes the AI tools much faster but is optional. WebP output and EXIF orientation behavior depend on the browser. Inputs are limited to JPEG, PNG, and WebP files up to 50 MB. A canvas encoder cannot be forcibly stopped mid-encode, so cancellation takes effect at the next safe processing boundary. This is alpha software.
 
 ## Develop locally
 

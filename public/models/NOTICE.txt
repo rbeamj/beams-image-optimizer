@@ -1,0 +1,9 @@
+Model files in this folder are fetched locally and are not committed.
+
+realesr-general-x4v3.onnx (npm run fetch:model)
+Source weights: Real-ESRGAN v0.2.5.0 realesr-general-x4v3.pth
+https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth
+Official pth sha256: 8dc7edb9ac80ccdc30c3a5dca6616509367f05fbc184ad95b731f05bece96292
+License: BSD 3-Clause (Copyright 2021, Xintao Wang)
+
+See docs/realesrgan-audit.md and THIRD_PARTY_NOTICES.md.

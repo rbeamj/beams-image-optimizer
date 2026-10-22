@@ -147,3 +147,10 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Local AI assets (fetched / copied; not committed)
+public/models/*.onnx
+public/ort/
+public/bench/
+public/models/manifest.json
+public/models/.work/
