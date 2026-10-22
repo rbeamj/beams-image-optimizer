@@ -11,6 +11,7 @@ import {
   gradientStops,
   groundShadow,
   linearCoords,
+  placeSubject,
   sceneLayout,
   type SceneSettings,
 } from '../src/editor/scene';
@@ -22,8 +23,54 @@ describe('defaultScene', () => {
       padding: 10,
       offsetX: 0,
       offsetY: 0,
+      scale: 100,
       shadow: { style: 'ground', opacity: 35, blur: 50, distance: 20 },
     });
+  });
+});
+
+describe('placeSubject', () => {
+  const base: SceneSettings = { aspect: '1:1', padding: 10, offsetX: 0, offsetY: 0, shadow: { style: 'none', opacity: 0, blur: 0, distance: 0 } };
+
+  it('matches sceneLayout when the whole image is visible and unrotated', () => {
+    const p = placeSubject({ width: 800, height: 600 }, undefined, base);
+    const l = sceneLayout({ width: 800, height: 600 }, base);
+    expect(p.frame).toEqual(l.frame);
+    expect(p.zoom).toBe(1);
+    expect(p.center.x).toBeCloseTo(l.product.left + 400);
+    expect(p.center.y).toBeCloseTo(l.product.top + 300);
+  });
+
+  it('centres and frames the visible subject rather than transparent margins', () => {
+    // Subject occupies the top-left 200×100 of an 800×600 cutout.
+    const p = placeSubject({ width: 800, height: 600 }, { left: 0, top: 0, width: 200, height: 100 }, base);
+    expect(p.frame.width).toBe(250);
+    expect(p.subject.left + p.subject.width / 2).toBeCloseTo(125);
+    expect(p.subject.top + p.subject.height / 2).toBeCloseTo(125);
+    // The image centre sits 300 px right / 250 px below the subject centre.
+    expect(p.center.x).toBeCloseTo(125 + 300);
+    expect(p.center.y).toBeCloseTo(125 + 250);
+  });
+
+  it('accounts for rotation and flips', () => {
+    const r = placeSubject({ width: 800, height: 600 }, { left: 0, top: 0, width: 200, height: 100 }, base, 90);
+    expect(r.subject.width).toBeCloseTo(100 * (250 / 250));
+    expect(r.subject.height).toBeCloseTo(200);
+    // Offset (-300, -250) rotated by 90° becomes (250, -300): the image centre moves left/down of the subject.
+    expect(r.center.x).toBeCloseTo(r.subject.left + 50 - 250);
+    expect(r.center.y).toBeCloseTo(r.subject.top + 100 + 300);
+    const f = placeSubject({ width: 800, height: 600 }, { left: 0, top: 0, width: 200, height: 100 }, base, 0, true);
+    expect(f.center.x).toBeCloseTo(125 - 300);
+  });
+
+  it('scales the subject without changing the frame resolution', () => {
+    const full = placeSubject({ width: 800, height: 600 }, undefined, base);
+    const half = placeSubject({ width: 800, height: 600 }, undefined, { ...base, scale: 50 });
+    expect(half.frame).toEqual(full.frame);
+    expect(half.zoom).toBe(0.5);
+    expect(half.subject.width).toBeCloseTo(400);
+    expect(half.center.x).toBeCloseTo(full.frame.width / 2);
+    expect(clampScene({ ...base, scale: 999 }).scale).toBe(150);
   });
 });
 
@@ -35,6 +82,7 @@ describe('clampScene', () => {
         padding: 0,
         offsetX: -100,
         offsetY: 100,
+        scale: 100,
         shadow: { style: 'drop', opacity: 0, blur: 100, distance: 100 },
       });
   });
@@ -46,6 +94,7 @@ describe('clampScene', () => {
         padding: 10,
         offsetX: 0,
         offsetY: 0,
+        scale: 100,
         shadow: { style: 'none', opacity: 35, blur: 50, distance: 20 },
       });
   });

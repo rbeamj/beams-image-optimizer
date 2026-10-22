@@ -2,7 +2,8 @@ export type FrameAspect = 'product' | '1:1' | '4:5' | '4:3' | '16:9';
 export type BackdropFit = 'cover' | 'contain';
 export type ShadowStyle = 'none' | 'drop' | 'ground';
 export type ShadowSettings = { style: ShadowStyle; opacity: number; blur: number; distance: number };
-export type SceneSettings = { aspect: FrameAspect; padding: number; offsetX: number; offsetY: number; shadow: ShadowSettings };
+/** `scale` (30-150, default 100) sizes the subject inside the frame; the frame itself keeps its resolution. */
+export type SceneSettings = { aspect: FrameAspect; padding: number; offsetX: number; offsetY: number; scale?: number; shadow: ShadowSettings };
 export type Size = { width: number; height: number };
 export type Box = { left: number; top: number; width: number; height: number };
 export type GradientPreset = 'soft' | 'warm' | 'cool' | 'studio' | 'charcoal';
@@ -13,6 +14,7 @@ const DEFAULT: SceneSettings = {
   padding: 10,
   offsetX: 0,
   offsetY: 0,
+  scale: 100,
   shadow: { style: 'ground', opacity: 35, blur: 50, distance: 20 },
 };
 
@@ -41,11 +43,13 @@ export function clampScene(settings: SceneSettings): SceneSettings {
   const shadowOpacity = Number.isFinite(settings.shadow.opacity) ? Math.min(100, Math.max(0, settings.shadow.opacity)) : DEFAULT.shadow.opacity;
   const shadowBlur = Number.isFinite(settings.shadow.blur) ? Math.min(100, Math.max(0, settings.shadow.blur)) : DEFAULT.shadow.blur;
   const shadowDistance = Number.isFinite(settings.shadow.distance) ? Math.min(100, Math.max(0, settings.shadow.distance)) : DEFAULT.shadow.distance;
+  const scale = Number.isFinite(settings.scale) ? Math.min(150, Math.max(30, settings.scale!)) : 100;
   return {
     aspect,
     padding,
     offsetX,
     offsetY,
+    scale,
     shadow: { style: shadowStyle, opacity: shadowOpacity, blur: shadowBlur, distance: shadowDistance },
   };
 }
@@ -78,6 +82,40 @@ export function sceneLayout(product: Size, settings: SceneSettings): { frame: Si
       height: product.height,
     },
   };
+}
+
+export type SubjectPlacement = {
+  frame: Size;
+  /** Where the image centre goes, in frame pixels. */
+  center: { x: number; y: number };
+  /** Multiplier on the image's native size. */
+  zoom: number;
+  /** Axis-aligned box of the visible (rotated) subject in frame pixels; drives shadows. */
+  subject: Box;
+};
+
+/**
+ * Lays out the visible subject (not the transparent margin around a cutout) inside the frame, accounting for
+ * rotation and flips. `crop` is the image size after cropping; `visible` is the opaque area in crop coordinates.
+ */
+export function placeSubject(crop: Size, visible: Box | undefined, settings: SceneSettings, rotationDeg = 0, flipX = false, flipY = false): SubjectPlacement {
+  const s = clampScene(settings);
+  const v = visible && visible.width > 0 && visible.height > 0 ? visible : { left: 0, top: 0, width: crop.width, height: crop.height };
+  const t = (rotationDeg * Math.PI) / 180;
+  const cos = Math.cos(t), sin = Math.sin(t);
+  const rw = v.width * Math.abs(cos) + v.height * Math.abs(sin);
+  const rh = v.width * Math.abs(sin) + v.height * Math.abs(cos);
+  const layout = sceneLayout({ width: rw, height: rh }, s);
+  const zoom = s.scale! / 100;
+  const bw = rw * zoom, bh = rh * zoom;
+  const fx = layout.frame.width - bw, fy = layout.frame.height - bh;
+  const subject = { left: fx / 2 + (s.offsetX / 100) * (fx / 2), top: fy / 2 + (s.offsetY / 100) * (fy / 2), width: bw, height: bh };
+  // Offset of the visible centre from the image centre, flipped then rotated like the rendered image.
+  let dx = v.left + v.width / 2 - crop.width / 2, dy = v.top + v.height / 2 - crop.height / 2;
+  if (flipX) dx = -dx;
+  if (flipY) dy = -dy;
+  const ox = (dx * cos - dy * sin) * zoom, oy = (dx * sin + dy * cos) * zoom;
+  return { frame: layout.frame, center: { x: subject.left + bw / 2 - ox, y: subject.top + bh / 2 - oy }, zoom, subject };
 }
 
 export function backdropPlacement(image: Size, frame: Size, fit: BackdropFit): Box {
