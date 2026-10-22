@@ -61,7 +61,7 @@ npm run fetch:models -- --all --from <dir>   # copy from a local folder instead 
 
 `--quality` downloads the fp16 BiRefNet 1024 model and builds the fp32 WebGPU variant locally (needs `uv` or Python 3 with `onnx` and `numpy`). To deliberately host specific weights, list them at build time, e.g. `BEAMS_INCLUDE_MODELS=u2netp.onnx npm run build`; only listed files are copied and the model manifest is filtered to match.
 
-**Licensing.** Model code and weights are MIT/Apache-2.0, but the training datasets of every model carry research-only, non-commercial or unstated terms. No weights ship with the app; see [docs/model-licensing.md](docs/model-licensing.md) before any commercial deployment. Measured performance is in [docs/photo-studio-performance.md](docs/photo-studio-performance.md); model comparisons are in `experiments/bg-eval/REPORT.md` and `docs/background-removal-evaluation.md`.
+**Licensing.** Model code and released weights are published under MIT, Apache-2.0 or BSD-3-Clause; keep their notices if you host the weights. No weights ship with the app or are committed to the repository. Training-dataset terms, which are separate from the weight licenses, and the few open questions are recorded in [docs/model-licensing.md](docs/model-licensing.md). Measured performance is in [docs/photo-studio-performance.md](docs/photo-studio-performance.md); model comparisons are in `experiments/bg-eval/REPORT.md` and `docs/background-removal-evaluation.md`.
 
 Quick Optimize and Photo Studio intentionally share the same import queue, output recipes, and browser-only image engine. They are separate interfaces, not separate products or processing systems.
 

@@ -25,17 +25,17 @@ Vite resolves the optional build-tool packages `lightningcss` and platform-speci
 
 - Source: https://github.com/xinntao/Real-ESRGAN — BSD-3-Clause, Copyright (c) 2021, Xintao Wang.
 - Weights are fetched by `npm run fetch:model` into `public/models/` and are not committed. Anyone redistributing them must retain the BSD-3-Clause notice, conditions, and disclaimer, and must not use the authors' names to endorse derived products.
-- Residual risk: the training data includes DIV2K, whose academic-use terms may not clearly flow through to released weights. See `docs/realesrgan-audit.md`.
+- Open question: the weights have no weight-specific license file; they are release assets of the BSD-3-Clause repository. Training-data notes are in `docs/realesrgan-audit.md` and `docs/model-licensing.md`.
 
 ## Photo Studio AI models (optional, not bundled)
 
 The app can use these models after an opt-in; none are committed or included in a default build (`npm run fetch:models` downloads them for local use):
 
-- **BiRefNet lite 512 / 1024** — https://github.com/ZhengPeng7/BiRefNet, MIT. ONNX exports from `studioludens/birefnet-lite-512`, `jiabins0303/birefnet-lite-1024-webgpu` and `onnx-community/BiRefNet_lite-ONNX` (Hugging Face). Training data includes DIS5K, whose terms prohibit commercial use.
-- **U²-Netp** — https://github.com/xuebinqin/U-2-Net, Apache-2.0; ONNX file from the MIT-licensed rembg release assets. Upstream does not state terms for the DUTS training data.
-- **MobileSAM** — https://github.com/ChaoningZhang/MobileSAM, Apache-2.0; ONNX export from `Acly/MobileSAM` (Hugging Face). Distilled on SA-1B ("Research purposes only").
-- **MI-GAN** — https://github.com/Picsart-AI-Research/MI-GAN, MIT (code and weights, © 2024 Picsart AI Research); ONNX pipeline from `andraniksargsyan/migan` (Hugging Face). Trained on Places2 (non-commercial research terms).
+- **BiRefNet lite 512 / 1024** — https://github.com/ZhengPeng7/BiRefNet, MIT. ONNX exports from `studioludens/birefnet-lite-512`, `jiabins0303/birefnet-lite-1024-webgpu` and `onnx-community/BiRefNet_lite-ONNX` (Hugging Face). Code and weights MIT.
+- **U²-Netp** — https://github.com/xuebinqin/U-2-Net, Apache-2.0; ONNX file from the MIT-licensed rembg release assets.
+- **MobileSAM** — https://github.com/ChaoningZhang/MobileSAM, Apache-2.0; ONNX export from `Acly/MobileSAM` (Hugging Face, tagged MIT); retain the upstream Apache-2.0 notice.
+- **MI-GAN** — https://github.com/Picsart-AI-Research/MI-GAN, MIT (code and weights, © 2024 Picsart AI Research); ONNX pipeline from `andraniksargsyan/migan` (Hugging Face, MIT).
 
-Anyone hosting these weights must retain the upstream license notices. The training-data terms above are unresolved for commercial use; see `docs/model-licensing.md` for the full table and verbatim terms.
+Anyone hosting these weights must retain the upstream license notices. Training-dataset terms are separate from these weight licenses; see `docs/model-licensing.md` for the license table, dataset terms and open questions.
 
 No model weights are committed to this repository. Each local-AI addition requires a separate review of source, weight, commercial-use, and redistribution terms.

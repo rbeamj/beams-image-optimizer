@@ -1,47 +1,52 @@
 # Model licensing — Photo Studio AI
 
-Audit date: 2026-10-21. All inference runs locally in the browser. **No model weights are committed or bundled**: `.onnx` files are gitignored, `npm run build` strips them from `dist/` (unless an operator lists files in `BEAMS_INCLUDE_MODELS`), and `npm run fetch:models` downloads them for local use. Every AI feature is opt-in and never runs automatically.
+Audit date: 2026-10-21 (revised 2026-10-22). Beams Image Optimizer is a free, open-source, browser-local project. All inference runs on the user's device; every AI feature is opt-in and never runs automatically.
+
+**Distribution model.** No model weights are committed or included in a default build: `.onnx` files are gitignored, `npm run build` strips them from `dist/`, and `npm run fetch:models` downloads them from their upstream publishers for local use. A deployment that chooses to host weights (`BEAMS_INCLUDE_MODELS`) must carry the notices listed below.
 
 This is an engineering record, not legal advice.
 
-## Models the app can use
+## Licenses that govern the code and released checkpoints
 
-| Feature | Model file(s) | Download source (`scripts/fetch-models.mjs`) | Code license | Weights license | Training data | Commercial status |
-| --- | --- | --- | --- | --- | --- | --- |
-| Cutout (Quality) | `birefnet-lite-1024-webgpu-fp16.onnx`; `birefnet-lite-1024-webgpu-fp32.onnx` (built locally from `onnx-community/BiRefNet_lite-ONNX` with the jiabins0303 graph-rewrite scripts; numerically identical) | `huggingface.co/jiabins0303/birefnet-lite-1024-webgpu`, `huggingface.co/onnx-community/BiRefNet_lite-ONNX` | MIT (BiRefNet) | MIT | DIS5K-TR, DIS-TEs, DUTS-TR_TE, HRSOD, UHRSD, HRS10K, TR-P3M-10k, TR-humans | **Blocked** by DIS5K / DUTS terms |
-| Cutout (Fast) | `birefnet-lite-512-fp16.onnx`, `birefnet-lite-512.onnx` | `huggingface.co/studioludens/birefnet-lite-512` | MIT | MIT | as above | **Blocked** by DIS5K / DUTS terms |
-| Cutout (last resort) | `u2netp.onnx` | `github.com/danielgatis/rembg` release `v0.0.0` | Apache-2.0 | rehosted by rembg (MIT) | DUTS-TR (per paper) | **Unclear**: DUTS "All rights reserved" |
-| Refine (Magic Click) | `mobilesam-encoder.onnx`, `mobilesam-decoder-multi.onnx` | `huggingface.co/Acly/MobileSAM` | Apache-2.0 (MobileSAM) | Apache-2.0 (upstream); Acly ONNX repo tagged MIT | Distilled on 1% of SA-1B | **Blocked** by SA-1B terms |
-| Cleanup | `migan-pipeline-v2.onnx` | `huggingface.co/andraniksargsyan/migan` | MIT | MIT (`LICENSE-WEIGHTS`, © 2024 Picsart AI Research) | Places2 | **Blocked** by Places2 terms |
-| Enhance | `realesr-general-x4v3.onnx` | `huggingface.co/CoderViking/realesr-general-x4v3-onnx` (export of the official v0.2.5.0 weights) | BSD-3-Clause | BSD-3-Clause (by community practice; no separate weight license) | DF2K (DIV2K + Flickr2K) + OST | **Residual risk**: DIV2K academic-use terms |
+These are the licenses the authors explicitly published for their code and pretrained weights. None of them restricts commercial use or field of use.
 
-Runtime dependency: ONNX Runtime Web (MIT), served from `public/ort/` and copied from `node_modules` at build time.
+| Feature | Model / file(s) | Code license | Released-weights license | ONNX file used (`scripts/fetch-models.mjs`) | Notice to keep |
+| --- | --- | --- | --- | --- | --- |
+| Cutout (Quality) | BiRefNet lite 1024 — `birefnet-lite-1024-webgpu-fp16.onnx`, and `-fp32.onnx` built locally from `onnx-community/BiRefNet_lite-ONNX` with the jiabins0303 rewrite scripts | MIT ([ZhengPeng7/BiRefNet](https://github.com/ZhengPeng7/BiRefNet)) | MIT | `jiabins0303/birefnet-lite-1024-webgpu` (MIT); `onnx-community/BiRefNet_lite-ONNX` (conversion of the MIT weights; repo license tag not separately recorded) | BiRefNet MIT notice |
+| Cutout (Fast) | BiRefNet lite 512 — `birefnet-lite-512{,-fp16}.onnx` | MIT | MIT | `studioludens/birefnet-lite-512` (MIT) | BiRefNet MIT notice |
+| Cutout (fallback) | U²-Netp — `u2netp.onnx` | Apache-2.0 ([xuebinqin/U-2-Net](https://github.com/xuebinqin/U-2-Net)) | Apache-2.0 upstream; ONNX rehosted by rembg (MIT) | rembg release `v0.0.0` | U²-Net Apache-2.0 notice; rembg MIT notice |
+| Refine | MobileSAM — `mobilesam-encoder.onnx`, `mobilesam-decoder-multi.onnx` | Apache-2.0 ([ChaoningZhang/MobileSAM](https://github.com/ChaoningZhang/MobileSAM)) | Apache-2.0 (weights ship in the repo) | `Acly/MobileSAM` (tagged MIT) | MobileSAM Apache-2.0 notice (keep it even though the ONNX repo is tagged MIT) |
+| Cleanup | MI-GAN — `migan-pipeline-v2.onnx` | MIT ([Picsart-AI-Research/MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN)) | MIT (`LICENSE-WEIGHTS`, © 2024 Picsart AI Research) | `andraniksargsyan/migan` (MIT) | MI-GAN code and weights MIT notices |
+| Enhance | Real-ESRGAN `realesr-general-x4v3` | BSD-3-Clause ([xinntao/Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)) | Released as v0.2.5.0 assets of the BSD-3-Clause repo; no separate weight license | `CoderViking/realesr-general-x4v3-onnx` (bsd-3-clause) | BSD-3-Clause notice; no use of the authors' names for endorsement |
 
-## Training-data terms (verbatim)
+Runtime: ONNX Runtime Web (MIT).
 
-- **DIS5K** (`experiments/bg-eval/FACTS.md`): "non-commercial use in research or educational purpose … commercial use of this dataset is prohibited even after copying, editing, processing". Affects every BiRefNet variant.
-- **DUTS** (`experiments/bg-eval/FACTS.md`): "All rights reserved by the original authors". Affects U²-Netp and BiRefNet.
-- **SA-1B** (`experiments/bg-eval/FACTS.md`): "Intended Use Cases: Research purposes only". Affects MobileSAM.
-- **Places2** (`experiments/bg-eval/FACTS.md`): "use the data only for non-commercial research and educational purposes … You will NOT distribute the above images". Affects MI-GAN.
-- **DIV2K** (`docs/realesrgan-audit.md`): "DIV2K (part of DF2K) historically restricts dataset use to academic research. Whether that restriction flows through to released weights is an open legal question that the author has not answered."
+## Training datasets (recorded for transparency)
 
-No model evaluated in `experiments/bg-eval/REPORT.md` was found to be training-data clean.
+The training datasets have their own terms. Those terms bind the people who obtain and use the datasets; they are not the license of the released checkpoints, and none of the checkpoint licenses above incorporates them. This project does not download, redistribute or train on any of these datasets.
 
-## What ships and what users download
+| Model | Training data | Dataset terms (verbatim, from `experiments/bg-eval/FACTS.md` or `docs/realesrgan-audit.md`) |
+| --- | --- | --- |
+| BiRefNet lite | DIS5K, DUTS, HRSOD, UHRSD, HRS10K, P3M-10k, humans sets | DIS5K: "non-commercial use in research or educational purpose … commercial use of this dataset is prohibited even after copying, editing, processing". DUTS: "All rights reserved by the original authors". |
+| U²-Netp | DUTS-TR | "All rights reserved by the original authors" |
+| MobileSAM | 1% of SA-1B (distillation) | "Intended Use Cases: Research purposes only" |
+| MI-GAN | Places2 | "use the data only for non-commercial research and educational purposes … You will NOT distribute the above images" |
+| Real-ESRGAN | DF2K (DIV2K + Flickr2K) + OST | DIV2K historically restricts dataset use to academic research |
 
-- **Ships (repository and default build):** application code, ONNX Runtime Web assets and the opt-in notices. No weights; the build-time model manifest is filtered to the allowlist, so a default build lists none.
-- **Downloaded on first use:** only the model a feature needs, from the deployment's own `models/` folder, cached in the browser's Cache Storage (`beams-models-v1`). For local development those files come from the sources above via `npm run fetch:models`.
+## Concrete restrictions and open questions
 
-## Decisions needed before a commercial release
+**Verified restrictions on the checkpoints:** none beyond the notice-retention conditions of MIT, Apache-2.0 and BSD-3-Clause (and BSD-3-Clause's no-endorsement clause).
 
-- Whether hosting or serving weights trained on DIS5K, DUTS, SA-1B or Places2 is acceptable for a commercial product, given the dataset terms above.
-- Whether DIV2K's academic-use terms affect the Real-ESRGAN weights.
-- If any of these are unacceptable: which features to ship without AI (the scene editor, adjustments and export do not depend on any model), or which replacement models with commercially clean training data to evaluate.
-- Owner sign-off on attribution text (BiRefNet, MobileSAM, MI-GAN, Real-ESRGAN, U²-Netp, ONNX Runtime) for any hosted build.
+**Unresolved questions, limited to what the evidence supports:**
+
+1. **DIS5K wording (BiRefNet).** The DIS5K terms say commercial use is prohibited "even after copying, editing, processing". Whether that reaches model weights trained by third parties is not settled; the BiRefNet authors nevertheless published their weights under MIT. Relevant only to downstream commercial users; it does not affect this free project's use or its links to the upstream weights.
+2. **Real-ESRGAN weight license.** The weights are release assets of a BSD-3-Clause repository without a weight-specific license file. Treating BSD-3-Clause as covering them is common practice, not an explicit grant.
+3. **Re-hosted conversions.** The ONNX files come from third-party Hugging Face repos. Their tags match or are compatible with upstream, except that `onnx-community/BiRefNet_lite-ONNX`'s tag was not separately recorded; the `Acly/MobileSAM` MIT tag does not replace the upstream Apache-2.0 notice.
+
+No item above blocks developing, using or releasing this open-source project. A deployment that hosts the weights itself should ship the notices in the first table.
 
 ## How this was verified
 
-- `experiments/bg-eval/FACTS.md` and `experiments/bg-eval/REPORT.md`: licenses, model cards and verbatim dataset terms collected during the model evaluation.
+- `experiments/bg-eval/FACTS.md` and `REPORT.md`: code, weight and dataset licenses and verbatim terms collected during the model evaluation.
 - `docs/realesrgan-audit.md`: Real-ESRGAN code, weight and training-data review.
-- `scripts/fetch-models.mjs` and `src/ai/models.ts`: the exact files and sources the app uses.
-- `vite.config.ts`: build-time stripping of `.onnx` files and manifest filtering.
+- `scripts/fetch-models.mjs`, `src/ai/models.ts`, `vite.config.ts`: the exact files, their sources, and build-time stripping.
