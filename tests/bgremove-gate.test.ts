@@ -26,5 +26,9 @@ describe('background removal gate and adapters', () => {
     expect(BG_REMOVAL_NOTICE).toContain('U²-Netp');
     expect(BG_REMOVAL_NOTICE).toContain('never bundled');
     expect(BG_REMOVAL_NOTICE).toContain('docs/model-licensing.md');
+    expect(BG_REMOVAL_NOTICE).toContain('THIRD_PARTY_NOTICES.md');
+    expect(BG_REMOVAL_NOTICE).toContain('MIT');
+    expect(BG_REMOVAL_NOTICE).toContain('Apache-2.0');
+    expect(BG_REMOVAL_NOTICE).not.toMatch(/commercial/i);
   });
 });
