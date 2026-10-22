@@ -1,7 +1,7 @@
 import { Canvas, Ellipse, FabricImage, type FabricObject, filters, Gradient, Point, Rect, Shadow, util } from 'fabric';
 import { CLEANUP_PANEL, mountAiTools, REFINE_PANEL } from './ai-tools';
 import { centerCrop, comparisonClip, normalizedAdjustment, sharpenMatrix, SnapshotHistory, temperatureMatrix, type CropRect } from './tools';
-import { alphaBounds, backdropPlacement, clampScene, visibleProductBox, type Box, customGradient, defaultScene, dropShadow, gradientStops, groundShadow, linearCoords, placeSubject, type BackdropFit, type ColorStop, type FrameAspect, type GradientPreset, type SceneSettings, type ShadowStyle } from './scene';
+import { alphaBounds, backdropPlacement, clampScene, visibleProductBox, type Box, customGradient, defaultScene, dropShadow, gradientStops, groundShadow, SCENE_PRESETS, type ScenePreset, linearCoords, placeSubject, type BackdropFit, type ColorStop, type FrameAspect, type GradientPreset, type SceneSettings, type ShadowStyle } from './scene';
 import { acknowledgeBgRemoval, BG_REMOVAL_NOTICE, hasAcknowledgedBgRemoval, type EdgeCleanup } from '../bgremove';
 import { removeAdaptive } from '../bgremove/adaptive';
 import { acknowledgeEnhanceLicense, enhanceImage, ENHANCE_LICENSE_SUMMARY, hasAcknowledgedEnhanceLicense, resizeBaseline, type EnhanceTargetEdge } from '../enhance';
@@ -26,9 +26,13 @@ const defaults = (): Adjustments => ({ exposure: 0, brightness: 0, contrast: 0, 
 
 export function initEditor() {
   const panelTabs = document.querySelector<HTMLElement>('.editor-panel .panel-tabs')!;
-  panelTabs.insertAdjacentHTML('beforeend', '<button data-panel-tab="background" type="button">Background</button><button data-panel-tab="refine" type="button">Refine</button><button data-panel-tab="cleanup" type="button">Cleanup</button><button data-panel-tab="enhance" type="button">Enhance</button>');
+  const steps: [panel: string, label: string, step?: number][] = [['background', 'Cutout', 1], ['refine', 'Refine', 2], ['cleanup', 'Cleanup', 3], ['enhance', 'Enhance', 4], ['scene', 'Scene', 5], ['adjust', 'Light'], ['color', 'Color'], ['transform', 'Transform'], ['crop', 'Crop'], ['export', 'Export', 6]];
+  const navHtml = steps.map(([panel, label, step]) => `<button data-panel-tab="${panel}" type="button"${step ? ` title="Step ${step}: ${label}"` : ''}>${step ? `<span class="step-no" aria-hidden="true">${step}</span>` : ''}${label}</button>`).join('');
+  panelTabs.className = 'panel-tabs workflow-tabs';
+  panelTabs.innerHTML = navHtml;
+  document.querySelector<HTMLElement>('.tool-rail')!.innerHTML = navHtml;
   document.querySelector<HTMLElement>('[data-editor-panel="export"]')!.insertAdjacentHTML('beforebegin', REFINE_PANEL + CLEANUP_PANEL);
-  document.querySelector<HTMLElement>('[data-editor-panel="export"]')!.insertAdjacentHTML('beforebegin', '<div data-editor-panel="background" hidden><fieldset><legend>Remove background (AI)</legend><p class="hint" id="bgr-notice"></p><div id="bgr-ack"><button id="ack-bgr" type="button">Enable optional AI background removal</button></div><div id="bgr-controls" hidden><label>Edges <select id="bgr-cleanup"><option value="crisp" selected>Crisp</option><option value="balanced">Balanced</option><option value="soft">Soft</option></select></label><label><input id="bgr-refine" type="checkbox" checked /> Refine edges with photo detail</label><p class="hint">Refinement helps on plain backgrounds; turn it off for busy scenes.</p><label>Model <select id="bgr-mode"><option value="auto" selected>Auto (Recommended)</option><option value="fast">Fast (512)</option><option value="quality">Quality (1024)</option></select></label><p class="hint" id="bgr-mode-info">Checking this device…</p><progress id="bgr-progress" max="1" value="0" hidden></progress><div class="tool-buttons"><button id="run-bgr" type="button">Remove background</button></div></div><p id="bgr-status" class="hint" role="status">AI background removal is off until you opt in.</p></fieldset><fieldset><legend>Backdrop</legend><div class="tool-buttons"><button id="backdrop-none" type="button">Transparent</button></div><label>Solid color <input id="backdrop-color" type="color" value="#ffffff" /></label><div class="tool-buttons"><button id="apply-backdrop-color" type="button">Use color</button></div><p class="hint">Studio gradients</p><div class="tool-buttons"><button data-gradient="studio" type="button">Studio white</button><button data-gradient="soft" type="button">Soft</button><button data-gradient="warm" type="button">Warm</button><button data-gradient="cool" type="button">Cool</button><button data-gradient="charcoal" type="button">Charcoal</button></div><label>From <input id="gradient-from" type="color" value="#ffffff" /></label><label>To <input id="gradient-to" type="color" value="#d9dcdd" /></label><label>Angle <output id="gradient-angle-value">90°</output><input id="gradient-angle" type="range" min="0" max="360" value="90" /></label><div class="tool-buttons"><button id="apply-custom-gradient" type="button">Use custom gradient</button></div><label>Background photo <input id="backdrop-file" type="file" accept="image/jpeg,image/png,image/webp" /></label><label>Fit <select id="backdrop-fit"><option value="cover">Fill frame</option><option value="contain">Fit inside</option></select></label><p id="background-status" class="hint" role="status"></p></fieldset><fieldset><legend>Layout</legend><label>Frame <select id="scene-aspect"><option value="1:1">Square 1:1</option><option value="4:5">Portrait 4:5</option><option value="4:3">Landscape 4:3</option><option value="16:9">Wide 16:9</option><option value="product">Match product</option></select></label><label>Padding <output id="scene-padding-value">10%</output><input id="scene-padding" type="range" min="0" max="40" value="10" /></label><label>Horizontal position <output id="scene-offset-x-value">0</output><input id="scene-offset-x" type="range" min="-100" max="100" value="0" /></label><label>Vertical position <output id="scene-offset-y-value">0</output><input id="scene-offset-y" type="range" min="-100" max="100" value="0" /></label><div class="tool-buttons"><button id="scene-center" type="button">Center product</button></div></fieldset><fieldset><legend>Shadow</legend><label>Style <select id="shadow-style"><option value="none">None</option><option value="ground">Ground contact</option><option value="drop">Drop shadow</option></select></label><label>Opacity <output id="shadow-opacity-value">35%</output><input id="shadow-opacity" type="range" min="0" max="100" value="35" /></label><label>Softness <output id="shadow-blur-value">50</output><input id="shadow-blur" type="range" min="0" max="100" value="50" /></label><label>Distance <output id="shadow-distance-value">20</output><input id="shadow-distance" type="range" min="0" max="100" value="20" /></label></fieldset><p class="hint">Layout never resamples the product pixels. Shadows look most natural on transparent cutouts. Your original file is unchanged.</p></div><div data-editor-panel="enhance" hidden><fieldset><legend>AI Enhance</legend><p class="hint" id="enhance-license-text"></p><div id="enhance-ack"><button id="ack-enhance" type="button">Enable optional AI Enhance</button></div><div id="enhance-controls" hidden><div class="edge-grid" style="grid-template-columns:1fr 1fr"><label><input type="radio" name="enhance-edge" value="1024" checked />1024px</label><label><input type="radio" name="enhance-edge" value="2048" />2048px</label></div><div class="tool-buttons"><button id="run-enhance" type="button">Run local enhance</button><button id="clear-enhance" type="button" disabled>Use original pixels</button></div></div><p class="hint">Never runs automatically. Compare shows a standard resize versus the AI result.</p><p id="enhance-status" class="hint" role="status">AI Enhance is off until you opt in.</p></fieldset></div>');
+  document.querySelector<HTMLElement>('[data-editor-panel="export"]')!.insertAdjacentHTML('beforebegin', '<div data-editor-panel="background" hidden><fieldset><legend>Remove background (AI)</legend><p class="hint" id="bgr-notice"></p><div id="bgr-ack"><button id="ack-bgr" type="button">Enable optional AI background removal</button></div><div id="bgr-controls" hidden><label>Edges <select id="bgr-cleanup"><option value="crisp" selected>Crisp</option><option value="balanced">Balanced</option><option value="soft">Soft</option></select></label><label><input id="bgr-refine" type="checkbox" checked /> Refine edges with photo detail</label><p class="hint">Refinement helps on plain backgrounds; turn it off for busy scenes.</p><label>Model <select id="bgr-mode"><option value="auto" selected>Auto (Recommended)</option><option value="fast">Fast (512)</option><option value="quality">Quality (1024)</option></select></label><p class="hint" id="bgr-mode-info">Checking this device…</p><progress id="bgr-progress" max="1" value="0" hidden></progress><div class="tool-buttons"><button id="run-bgr" type="button">Remove background</button></div></div><p id="bgr-status" class="hint" role="status">AI background removal is off until you opt in.</p></fieldset><p class="hint">Next: Refine fixes the cutout with clicks, Cleanup removes objects, Scene places the product on a backdrop.</p></div><div data-editor-panel="scene" hidden><fieldset><legend>Quick presets</legend><div class="tool-buttons"><button data-scene-preset="marketplace" type="button">Marketplace white 1:1</button><button data-scene-preset="social" type="button">Social 4:5</button><button data-scene-preset="banner" type="button">Banner 16:9</button><button data-scene-preset="catalog" type="button">Catalog 4:3</button></div><p class="hint">Presets set the frame, backdrop and shadow; fine-tune anything below. Works best after Cutout.</p></fieldset><fieldset><legend>Backdrop</legend><div class="tool-buttons"><button id="backdrop-none" type="button">Transparent</button></div><label>Solid color <input id="backdrop-color" type="color" value="#ffffff" /></label><div class="tool-buttons"><button id="apply-backdrop-color" type="button">Use color</button></div><p class="hint">Studio gradients</p><div class="tool-buttons"><button data-gradient="studio" type="button">Studio white</button><button data-gradient="soft" type="button">Soft</button><button data-gradient="warm" type="button">Warm</button><button data-gradient="cool" type="button">Cool</button><button data-gradient="charcoal" type="button">Charcoal</button></div><label>From <input id="gradient-from" type="color" value="#ffffff" /></label><label>To <input id="gradient-to" type="color" value="#d9dcdd" /></label><label>Angle <output id="gradient-angle-value">90°</output><input id="gradient-angle" type="range" min="0" max="360" value="90" /></label><div class="tool-buttons"><button id="apply-custom-gradient" type="button">Use custom gradient</button></div><label>Background photo <input id="backdrop-file" type="file" accept="image/jpeg,image/png,image/webp" /></label><label>Fit <select id="backdrop-fit"><option value="cover">Fill frame</option><option value="contain">Fit inside</option></select></label><p id="background-status" class="hint" role="status"></p></fieldset><fieldset><legend>Layout</legend><label>Frame <select id="scene-aspect"><option value="1:1">Square 1:1</option><option value="4:5">Portrait 4:5</option><option value="4:3">Landscape 4:3</option><option value="16:9">Wide 16:9</option><option value="product">Match product</option></select></label><label>Padding <output id="scene-padding-value">10%</output><input id="scene-padding" type="range" min="0" max="40" value="10" /></label><label>Horizontal position <output id="scene-offset-x-value">0</output><input id="scene-offset-x" type="range" min="-100" max="100" value="0" /></label><label>Vertical position <output id="scene-offset-y-value">0</output><input id="scene-offset-y" type="range" min="-100" max="100" value="0" /></label><label>Subject size <output id="scene-scale-value">100%</output><input id="scene-scale" type="range" min="30" max="150" value="100" /></label><label>Subject rotation <output id="scene-rotation-value">0°</output><input id="scene-rotation" type="range" min="-180" max="180" value="0" /></label><div class="tool-buttons"><button id="scene-center" type="button">Center product</button></div></fieldset><fieldset><legend>Shadow</legend><label>Style <select id="shadow-style"><option value="none">None</option><option value="ground">Ground contact</option><option value="drop">Drop shadow</option></select></label><label>Opacity <output id="shadow-opacity-value">35%</output><input id="shadow-opacity" type="range" min="0" max="100" value="35" /></label><label>Softness <output id="shadow-blur-value">50</output><input id="shadow-blur" type="range" min="0" max="100" value="50" /></label><label>Distance <output id="shadow-distance-value">20</output><input id="shadow-distance" type="range" min="0" max="100" value="20" /></label></fieldset><p class="hint">Layout never resamples the product pixels. Shadows look most natural on transparent cutouts. Your original file is unchanged.</p></div><div data-editor-panel="enhance" hidden><fieldset><legend>AI Enhance</legend><p class="hint" id="enhance-license-text"></p><div id="enhance-ack"><button id="ack-enhance" type="button">Enable optional AI Enhance</button></div><div id="enhance-controls" hidden><div class="edge-grid" style="grid-template-columns:1fr 1fr"><label><input type="radio" name="enhance-edge" value="1024" checked />1024px</label><label><input type="radio" name="enhance-edge" value="2048" />2048px</label></div><div class="tool-buttons"><button id="run-enhance" type="button">Run local enhance</button><button id="clear-enhance" type="button" disabled>Use original pixels</button></div></div><p class="hint">Never runs automatically. Compare shows a standard resize versus the AI result.</p><p id="enhance-status" class="hint" role="status">AI Enhance is off until you opt in.</p></fieldset></div>');
   const element = document.querySelector<HTMLCanvasElement>('#editor-canvas')!;
   const stage = document.querySelector<HTMLElement>('#editor-stage')!;
   const empty = document.querySelector<HTMLElement>('#editor-empty')!;
@@ -72,6 +76,11 @@ export function initEditor() {
     maskOverlay.dirty = true;
     studio.bringObjectToFront(maskOverlay);
     studio.requestRenderAll();
+  };
+  /** Marks workflow steps that have been applied to the current photo. */
+  const updateSteps = () => {
+    const done: Record<string, boolean> = { background: !!layers.matteUrl, refine: !!layers.refined, cleanup: !!layers.cleaned, enhance: !!layers.enhancedTo, scene: backdrop.kind !== 'none' };
+    document.querySelectorAll<HTMLButtonElement>('[data-panel-tab]').forEach((button) => button.classList.toggle('done', !!done[button.dataset.panelTab!]));
   };
   const history = new SnapshotHistory<Snapshot>();
   let restoring = false;
@@ -193,6 +202,13 @@ export function initEditor() {
     const di = document.querySelector<HTMLInputElement>('#shadow-distance')!;
     if (di.value !== String(scene.shadow.distance)) di.value = String(scene.shadow.distance);
     document.querySelector<HTMLOutputElement>('#shadow-distance-value')!.textContent = String(scene.shadow.distance);
+    const sc = document.querySelector<HTMLInputElement>('#scene-scale')!;
+    if (sc.value !== String(scene.scale ?? 100)) sc.value = String(scene.scale ?? 100);
+    document.querySelector<HTMLOutputElement>('#scene-scale-value')!.textContent = `${scene.scale ?? 100}%`;
+    const rot = document.querySelector<HTMLInputElement>('#scene-rotation')!;
+    if (rot.value !== String(adjustments.rotation)) rot.value = String(adjustments.rotation);
+    document.querySelector<HTMLOutputElement>('#scene-rotation-value')!.textContent = `${adjustments.rotation}°`;
+    updateSteps();
     const color = document.querySelector<HTMLInputElement>('#backdrop-color')!;
     if (backdrop.kind === 'color' && color.value !== backdrop.color) color.value = backdrop.color;
     const fit = document.querySelector<HTMLSelectElement>('#backdrop-fit')!;
@@ -257,6 +273,7 @@ export function initEditor() {
       studio.bringObjectToFront(comparisonImage);
     }
     updateHistory();
+    updateSteps();
   };
   const updateComparison = async () => {
     comparePositionWrap.hidden = !compare.checked;
@@ -270,8 +287,11 @@ export function initEditor() {
       const currentUrl = comparisonUrl;
       const overlay = await FabricImage.fromURL(currentUrl);
       if (!compare.checked || currentUrl !== comparisonUrl || !image) return;
-      comparisonImage = overlay;
-      studio.add(comparisonImage);
+      // Overlapping refreshes may both load; only the first becomes the overlay.
+      if (!comparisonImage) {
+        comparisonImage = overlay;
+        studio.add(comparisonImage);
+      }
     }
     const clip = comparisonClip(image.width!, image.height!, Number(comparePosition.value));
     comparisonImage.set({
@@ -562,8 +582,10 @@ export function initEditor() {
   });
   document.querySelector('#clear-enhance')!.addEventListener('click', async () => {
     if (!image) return;
-    await applyLayers({ baseUrl: objectUrl, width: pristine.width, height: pristine.height, matteUrl: null }, image.getSrc());
-    setEnhanceStatus('Restored the original photo (undo brings back the previous edits).');
+    // Original photo pixels; an existing cutout is kept (resampled), object cleanups are dropped.
+    const matteUrl = layers.matteUrl ? await matteToUrl(await matteFromUrl(layers.matteUrl, pristine.width, pristine.height), pristine.width, pristine.height, registerUrl) : null;
+    await applyLayers({ baseUrl: objectUrl, width: pristine.width, height: pristine.height, matteUrl, removal: layers.removal, refined: layers.refined }, image.getSrc());
+    setEnhanceStatus('Restored the original photo pixels (cutout kept; undo brings back the previous edits).');
     updateClearEnhance();
   });
   compare.addEventListener('change', () => void updateComparison());
@@ -590,6 +612,19 @@ export function initEditor() {
   document.querySelector('#scene-offset-x')!.addEventListener('change', () => remember());
   document.querySelector('#scene-offset-y')!.addEventListener('input', (event) => { scene = clampScene({ ...scene, offsetY: Number((event.target as HTMLInputElement).value) }); document.querySelector<HTMLOutputElement>('#scene-offset-y-value')!.textContent = String(scene.offsetY); layoutScene(); });
   document.querySelector('#scene-offset-y')!.addEventListener('change', () => remember());
+  document.querySelector('#scene-scale')!.addEventListener('input', (event) => { scene = clampScene({ ...scene, scale: Number((event.target as HTMLInputElement).value) }); document.querySelector<HTMLOutputElement>('#scene-scale-value')!.textContent = `${scene.scale}%`; layoutScene(); });
+  document.querySelector('#scene-scale')!.addEventListener('change', () => remember());
+  document.querySelector('#scene-rotation')!.addEventListener('input', (event) => { adjustments.rotation = Number((event.target as HTMLInputElement).value); sync(); queuePreview(); });
+  document.querySelector('#scene-rotation')!.addEventListener('change', commit);
+  document.querySelectorAll<HTMLButtonElement>('[data-scene-preset]').forEach((button) => button.addEventListener('click', () => {
+    const preset = SCENE_PRESETS[button.dataset.scenePreset as ScenePreset];
+    scene = clampScene(structuredClone(preset.scene));
+    backdrop = preset.backdrop.kind === 'color' ? { kind: 'color', color: preset.backdrop.color } : { kind: 'gradient', stops: gradientStops(preset.backdrop.preset), angle: 90 };
+    layoutScene();
+    remember();
+    syncSceneControls();
+    setBackgroundStatus(`${preset.label} applied.${layers.matteUrl ? '' : ' Remove the background first for a clean product shot.'}`);
+  }));
   document.querySelector('#scene-center')!.addEventListener('click', () => { scene = clampScene({ ...scene, offsetX: 0, offsetY: 0 }); syncSceneControls(); layoutScene(); remember(); });
   document.querySelector('#shadow-style')!.addEventListener('change', (event) => { scene = clampScene({ ...scene, shadow: { ...scene.shadow, style: (event.target as HTMLSelectElement).value as ShadowStyle } }); layoutScene(); remember(); syncSceneControls(); });
   document.querySelector('#shadow-opacity')!.addEventListener('input', (event) => { scene = clampScene({ ...scene, shadow: { ...scene.shadow, opacity: Number((event.target as HTMLInputElement).value) } }); document.querySelector<HTMLOutputElement>('#shadow-opacity-value')!.textContent = `${scene.shadow.opacity}%`; layoutScene(); });
@@ -661,8 +696,10 @@ export function initEditor() {
   });
   if (import.meta.env.DEV) Object.assign(window, { __studio: { layers: () => ({ ...layers }), src: () => image?.getSrc(), scene: () => structuredClone(scene) } });
 
-  return {
+  const api = {
     load(file: File) { void load(file); },
+    /** True while a Magic Click or cleanup preview awaits Accept/Reject. */
+    pendingPreview: () => previewFrom !== undefined,
     async exportFile() {
       if (!image) return undefined;
       const overlay = comparisonImage;
@@ -685,6 +722,8 @@ export function initEditor() {
       const blob = await (await fetch(dataUrl)).blob();
       return new File([blob], `${title.textContent || 'image'}-edited.png`, { type: 'image/png' });
     },
-    dispose() { if (objectUrl) URL.revokeObjectURL(objectUrl); for (const url of generatedUrls) URL.revokeObjectURL(url); generatedUrls.length = 0; studio.dispose(); }
+    dispose() { if (objectUrl) URL.revokeObjectURL(objectUrl); for (const url of generatedUrls) URL.revokeObjectURL(url); generatedUrls.length = 0; aiTools.release(); removalEngine.release(); studio.dispose(); }
   };
+  if (import.meta.env.DEV) Object.assign((window as unknown as { __studio: object }).__studio, { exportFile: api.exportFile, frame: () => frameBox && { ...frameBox } });
+  return api;
 }

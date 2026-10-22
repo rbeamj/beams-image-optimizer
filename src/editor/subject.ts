@@ -12,6 +12,9 @@ export type SubjectLayers = {
   matteUrl: string | null;
   removal?: { variantId: string; label: string; mode: RemovalMode };
   enhancedTo?: number;
+  /** Accepted Magic Click and object-cleanup edits on this layer stack. */
+  refined?: number;
+  cleaned?: number;
 };
 
 export type UrlRegistry = (url: string) => string;

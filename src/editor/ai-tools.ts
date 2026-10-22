@@ -64,7 +64,8 @@ export function mountAiTools(host: ToolHost) {
     if (accept && done.matteUrl) {
       const before = host.displayUrl()!;
       await host.cancelPreview();
-      await host.commit({ ...host.layers(), matteUrl: done.matteUrl }, before);
+      const layers = host.layers();
+      await host.commit({ ...layers, matteUrl: done.matteUrl, refined: (layers.refined ?? 0) + 1 }, before);
       refineStatus('Cutout updated. Undo restores the previous cutout; click again to keep refining.');
     } else {
       await host.cancelPreview();
@@ -180,7 +181,7 @@ export function mountAiTools(host: ToolHost) {
       const before = host.displayUrl()!;
       await host.cancelPreview();
       const layers = host.layers();
-      await host.commit({ ...layers, baseUrl: done.baseUrl }, before);
+      await host.commit({ ...layers, baseUrl: done.baseUrl, cleaned: (layers.cleaned ?? 0) + 1 }, before);
       clearMask();
       mask = undefined;
       cleanupStatus('Object removed. Undo restores it; paint again for another cleanup.');

@@ -6,6 +6,10 @@ export function centerCrop(width: number, height: number, ratio: number): CropRe
   return { width: cropWidth, height: cropHeight, x: (width - cropWidth) / 2, y: (height - cropHeight) / 2 };
 }
 
+/** Photo Studio exports are capped at 2K; "Original" (0) and larger recipes are clamped to it. */
+export const STUDIO_MAX_EDGE = 2048;
+export function studioEdge(maxEdge: number) { return maxEdge > 0 ? Math.min(maxEdge, STUDIO_MAX_EDGE) : STUDIO_MAX_EDGE; }
+
 export function clampOpacity(percent: number) { return Math.min(1, Math.max(.1, percent / 100)); }
 
 export function normalizedAdjustment(value: number) { return Math.min(1, Math.max(-1, value / 100)); }

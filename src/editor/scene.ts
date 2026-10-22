@@ -84,6 +84,17 @@ export function sceneLayout(product: Size, settings: SceneSettings): { frame: Si
   };
 }
 
+export type ScenePreset = 'marketplace' | 'social' | 'banner' | 'catalog';
+export type PresetBackdrop = { kind: 'color'; color: string } | { kind: 'gradient'; preset: GradientPreset };
+
+/** One-click starting points; every value stays editable afterwards. */
+export const SCENE_PRESETS: Record<ScenePreset, { label: string; scene: SceneSettings; backdrop: PresetBackdrop }> = {
+  marketplace: { label: 'Marketplace white 1:1', backdrop: { kind: 'color', color: '#ffffff' }, scene: { aspect: '1:1', padding: 7, offsetX: 0, offsetY: 0, scale: 100, shadow: { style: 'ground', opacity: 28, blur: 60, distance: 10 } } },
+  social: { label: 'Social 4:5', backdrop: { kind: 'gradient', preset: 'soft' }, scene: { aspect: '4:5', padding: 12, offsetX: 0, offsetY: 10, scale: 100, shadow: { style: 'ground', opacity: 35, blur: 50, distance: 20 } } },
+  banner: { label: 'Banner 16:9', backdrop: { kind: 'gradient', preset: 'studio' }, scene: { aspect: '16:9', padding: 12, offsetX: -60, offsetY: 0, scale: 100, shadow: { style: 'drop', opacity: 30, blur: 60, distance: 30 } } },
+  catalog: { label: 'Catalog 4:3', backdrop: { kind: 'gradient', preset: 'warm' }, scene: { aspect: '4:3', padding: 10, offsetX: 0, offsetY: 0, scale: 100, shadow: { style: 'ground', opacity: 40, blur: 40, distance: 15 } } },
+};
+
 export type SubjectPlacement = {
   frame: Size;
   /** Where the image centre goes, in frame pixels. */

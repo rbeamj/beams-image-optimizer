@@ -21,8 +21,10 @@ describe('background removal gate and adapters', () => {
     expect(MATTE_ADAPTERS['birefnet-lite'].providers).toEqual(['webgpu']);
   });
 
-  it('names the shipped model and the license review in the notice', () => {
+  it('names the models, the no-bundling policy and the license review in the notice', () => {
+    expect(BG_REMOVAL_NOTICE).toContain('BiRefNet');
     expect(BG_REMOVAL_NOTICE).toContain('U²-Netp');
-    expect(BG_REMOVAL_NOTICE).toContain('docs/background-removal-evaluation.md');
+    expect(BG_REMOVAL_NOTICE).toContain('never bundled');
+    expect(BG_REMOVAL_NOTICE).toContain('docs/model-licensing.md');
   });
 });
