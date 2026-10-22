@@ -4,7 +4,7 @@
  * terminating the worker is also how model memory is released.
  */
 export type TensorPayload = { type: 'float32' | 'uint8' | 'int64'; data: ArrayBuffer; dims: number[] };
-export type LoadRequest = { url: string; expectedBytes: number; provider: 'webgpu' | 'wasm'; wasmPaths: string; threads: number };
+export type LoadRequest = { url: string; expectedBytes: number; provider: 'webgpu' | 'wasm'; wasmPaths: string; threads: number; sha256?: string; patchUrl?: string };
 export type LoadInfo = { sessionId: string; fromCache: boolean; downloadMs: number; initMs: number; inputNames: string[]; outputNames: string[]; wasmHeapMB: number | null };
 export type RunInfo = { outputs: Record<string, TensorPayload>; ms: number; wasmHeapMB: number | null };
 export type ErrorKind = 'oom' | 'unsupported' | 'timeout' | 'download' | 'other';
@@ -19,7 +19,7 @@ export class OrtWorkerError extends Error {
 export function classifyError(message: string): ErrorKind {
   if (/bad_alloc|out of memory|\bOOM\b|Aborted\(|memory access out of bounds|table index is out of bounds|allocation failed/i.test(message)) return 'oom';
   if (/requires f16|not support|no available backend|Can't create a session|WebGPU|\bGPU\b|device (was )?lost/i.test(message)) return 'unsupported';
-  if (/download|HTTP|incomplete/i.test(message)) return 'download';
+  if (/download|HTTP|incomplete|Failed to fetch|NetworkError|Load failed/i.test(message)) return 'download';
   return 'other';
 }
 

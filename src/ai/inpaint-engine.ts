@@ -5,7 +5,7 @@
  */
 import { detectCapabilities } from './capabilities';
 import { loadManifest, wasmAssetBase } from './removal-engine';
-import { MODEL_BASE, variantById } from './models';
+import { resolveModel, variantById } from './models';
 import { OrtWorkerClient, type LoadInfo } from './ort-client';
 import { blendInto, blendWeights, cleanupWindow, maskBounds } from '../editor/refine-tools';
 
@@ -28,7 +28,8 @@ export class InpaintEngine {
       try {
         const variant = variantById(`migan-${provider}`);
         this.client = new OrtWorkerClient();
-        const info = await this.client.load({ url: new URL(`${MODEL_BASE}${variant.file}`, document.baseURI).href, expectedBytes: manifest?.files[variant.file]?.bytes ?? variant.bytes, provider, wasmPaths: wasmAssetBase(), threads: crossOriginIsolated ? Math.min(4, caps.cores) : 1 }, (l, t) => onStatus?.('Loading MI-GAN', l, t), 5 * 60_000);
+        const source = resolveModel(variant.file, manifest, document.baseURI);
+        const info = await this.client.load({ url: source.url, expectedBytes: source.bytes, sha256: source.sha256, patchUrl: source.patchUrl, provider, wasmPaths: wasmAssetBase(), threads: crossOriginIsolated ? Math.min(4, caps.cores) : 1 }, (l, t) => onStatus?.('Loading MI-GAN', l, t), 5 * 60_000);
         this.session = { ...info, provider };
         return this.session;
       } catch (error) {
@@ -36,7 +37,7 @@ export class InpaintEngine {
         this.client?.terminate();
       }
     }
-    throw new Error(`Object removal could not start: ${(lastError as Error)?.message ?? lastError}. Run "npm run fetch:models -- --migan" if it is not installed.`);
+    throw new Error(`Object removal could not start: ${(lastError as Error)?.message ?? lastError}. Check your connection; the model downloads once and is then cached.`);
   }
 
   /** `rgba` is the full photo, `mask` marks pixels to remove (non-zero). Returns the full photo with only the masked area changed. */

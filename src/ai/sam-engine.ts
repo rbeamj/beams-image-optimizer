@@ -4,7 +4,7 @@
  */
 import { detectCapabilities } from './capabilities';
 import { loadManifest, wasmAssetBase } from './removal-engine';
-import { MODEL_BASE, variantById } from './models';
+import { resolveModel, variantById } from './models';
 import { OrtWorkerClient, type LoadInfo, type TensorPayload } from './ort-client';
 import { encoderSize, rankCandidates, toEncoderSpace, type ClickPoint } from '../editor/refine-tools';
 
@@ -31,9 +31,9 @@ export class SamEngine {
         this.client = new OrtWorkerClient();
         const encoderVariant = variantById(`mobilesam-encoder-${provider}`);
         const decoderVariant = variantById('mobilesam-decoder-wasm');
-        const request = (file: string, bytes: number) => ({ url: new URL(`${MODEL_BASE}${file}`, document.baseURI).href, expectedBytes: manifest?.files[file]?.bytes ?? bytes, provider, wasmPaths: wasmAssetBase(), threads: crossOriginIsolated ? Math.min(4, caps.cores) : 1 });
-        const encoder = await this.client.load(request(encoderVariant.file, encoderVariant.bytes), (l, t) => onStatus?.('Loading MobileSAM encoder', l, t), 5 * 60_000);
-        const decoder = await this.client.load(request(decoderVariant.file, decoderVariant.bytes), (l, t) => onStatus?.('Loading MobileSAM decoder', l, t), 5 * 60_000);
+        const request = (file: string) => { const s = resolveModel(file, manifest, document.baseURI); return { url: s.url, expectedBytes: s.bytes, sha256: s.sha256, patchUrl: s.patchUrl, provider, wasmPaths: wasmAssetBase(), threads: crossOriginIsolated ? Math.min(4, caps.cores) : 1 }; };
+        const encoder = await this.client.load(request(encoderVariant.file), (l, t) => onStatus?.('Loading MobileSAM encoder', l, t), 5 * 60_000);
+        const decoder = await this.client.load(request(decoderVariant.file), (l, t) => onStatus?.('Loading MobileSAM decoder', l, t), 5 * 60_000);
         this.sessions = { encoder, decoder, provider };
         return this.sessions;
       } catch (error) {
@@ -41,7 +41,7 @@ export class SamEngine {
         this.client?.terminate();
       }
     }
-    throw new Error(`MobileSAM could not start: ${(lastError as Error)?.message ?? lastError}. Run "npm run fetch:models -- --sam" if it is not installed.`);
+    throw new Error(`MobileSAM could not start: ${(lastError as Error)?.message ?? lastError}. Check your connection; the model downloads once and is then cached.`);
   }
 
   /** Encodes the photo layer once; repeated clicks on the same layer reuse the embedding. */

@@ -1,5 +1,7 @@
 import type { InferenceSession, Tensor } from 'onnxruntime-web/wasm';
 import { DEFAULT_MODEL_URL, type EnhanceExecutionProvider } from './types';
+import { loadModelBytes } from '../ai/model-cache';
+import { resolveModel } from '../ai/models';
 
 type OrtModule = typeof import('onnxruntime-web/wasm');
 
@@ -34,7 +36,14 @@ export async function getEnhanceSession(modelUrl = DEFAULT_MODEL_URL) {
   activeModelUrl = modelUrl;
   sessionPromise = (async () => {
     const ort = await loadOrt();
-    const session = await ort.InferenceSession.create(modelUrl, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
+    let model: string | Uint8Array = modelUrl;
+    if (modelUrl === DEFAULT_MODEL_URL && typeof document !== 'undefined') {
+      // Deployment-hosted copy when listed in the manifest, otherwise the pinned upstream file; cached after first use.
+      const manifest = await fetch('./models/manifest.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null);
+      const source = resolveModel('realesr-general-x4v3.onnx', manifest, document.baseURI);
+      model = new Uint8Array((await loadModelBytes(source.url, source.bytes, undefined, {}, source.sha256)).bytes);
+    }
+    const session = await ort.InferenceSession.create(model as Uint8Array, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
     return { session, provider: 'wasm' as EnhanceExecutionProvider };
   })();
   try {

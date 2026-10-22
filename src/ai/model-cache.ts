@@ -39,6 +39,8 @@ export async function loadModelBytes(
   expectedBytes: number,
   onProgress?: (loaded: number, total: number) => void,
   deps: CacheDeps = {},
+  /** When set, a network download must match this digest before it is cached or used. */
+  expectedSha256?: string,
 ): Promise<{ bytes: ArrayBuffer; fromCache: boolean; ms: number }> {
   const key = baseUrl(url);
   const start = nowMs(deps);
@@ -82,6 +84,11 @@ export async function loadModelBytes(
   const got = bytes.byteLength;
   if (got !== expectedBytes) {
     throw new Error(`Model file is incomplete or the wrong version (${got} bytes, expected ${expectedBytes})`);
+  }
+  if (expectedSha256 && globalThis.crypto?.subtle) {
+    const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', bytes));
+    const hex = Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
+    if (hex !== expectedSha256) throw new Error('Model download failed its integrity check (unexpected file contents)');
   }
 
   if (caches) {

@@ -599,7 +599,7 @@ export function initEditor() {
       updateClearEnhance();
     } catch (error) {
       const message = error instanceof DOMException && error.name === 'AbortError' ? 'Enhancement cancelled.' : (error as Error).message;
-      status.textContent = `${message} Run "npm run fetch:models -- --enhance" if the model file is missing.`;
+      status.textContent = `${message} Your photo is unchanged. If the model could not be downloaded, check your connection and try again.`;
     } finally {
       enhancing = false;
       runButton.disabled = false;

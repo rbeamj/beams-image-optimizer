@@ -2,6 +2,7 @@
 /** Module worker hosting ONNX Runtime sessions for one tool. See ort-client.ts for the protocol. */
 import type { InferenceSession, Tensor } from 'onnxruntime-web/wasm';
 import { loadModelBytes } from './model-cache';
+import { applyGraphPatch, sha256Hex, type GraphPatch } from './onnx-splice';
 import { classifyError, type LoadInfo, type LoadRequest, type RunInfo, type TensorPayload, type WorkerRequest, type WorkerResponse } from './ort-client';
 
 type Ort = typeof import('onnxruntime-web/wasm');
@@ -61,9 +62,17 @@ async function handle(message: WorkerRequest): Promise<{ result: unknown; transf
     const ort = await loadOrt(request);
     const download = await loadModelBytes(request.url, request.expectedBytes, (loaded, total) => {
       scope.postMessage({ kind: 'progress', reqId: message.reqId, loaded, total } satisfies WorkerResponse);
-    });
+    }, {}, request.sha256);
+    let model: Uint8Array<ArrayBuffer> = new Uint8Array(download.bytes);
+    if (request.patchUrl) {
+      const res = await fetch(request.patchUrl);
+      if (!res.ok) throw new Error(`Model download failed: graph patch HTTP ${res.status}`);
+      const patch = await res.json() as GraphPatch;
+      model = applyGraphPatch(model, patch);
+      if (await sha256Hex(model) !== patch.result.sha256) throw new Error('Model download failed its integrity check (patched graph)');
+    }
     const t0 = performance.now();
-    const session = await ort.InferenceSession.create(new Uint8Array(download.bytes), { executionProviders: [request.provider], graphOptimizationLevel: 'all' });
+    const session = await ort.InferenceSession.create(model, { executionProviders: [request.provider], graphOptimizationLevel: 'all' });
     const sessionId = `s${++counter}`;
     sessions.set(sessionId, { session, ort });
     const info: LoadInfo = { sessionId, fromCache: download.fromCache, downloadMs: Math.round(download.ms), initMs: Math.round(performance.now() - t0), inputNames: [...session.inputNames], outputNames: [...session.outputNames], wasmHeapMB: heapMB() };

@@ -25,6 +25,22 @@ Before the preview rework (canvas overlay instead of PNG round-trips), warm Magi
 
 Most of a new-page cutout's extra ~4 s is WebGPU session creation (shader compilation) for the 1024/512 fp32 graphs; it is paid once per page. The engine keeps the session alive until a different model is needed or a failure occurs.
 
+## Production build (models from Hugging Face)
+
+`npm run build` + `vite preview`, empty browser cache, same machine and photo, on a fast connection:
+
+| Step | Result |
+| --- | --- |
+| Cutout, Auto → Quality 1024 fp32 (224 MB original + 0.5 MB graph patch) | 9.7 s total, download 3.2 s, model 2.8 s; checksums verified |
+| Cutout, Fast 512 fp32 (192 MB) | 9.3 s, download 2.8 s |
+| Cutout with GPU paths failing (simulated) → Fast 512 CPU fp16 (98 MB) | 12.7 s, model 7.6 s (single-threaded: static hosting is not cross-origin isolated) |
+| Cutout with all BiRefNet paths failing (simulated) → U²-Netp WebGPU (4.6 MB) | 1.3 s |
+| Magic Click first click (encoder 28 MB + decoder 16 MB) | 2.6 s |
+| Cleanup first run (MI-GAN 28 MB) | 1.8 s |
+| Enhance 2048 first run (Real-ESRGAN 4.9 MB) | 15.6 s |
+| Cutout after reload (cached original, patch re-applied) | 6.5 s, no download |
+| BiRefNet 1024 fp16 (115 MB) | downloads with CORS and matches its checksum; not runnable on this GPU |
+
 ## Memory
 
 - JS heap during the full workflow stayed between 25 and 82 MB (`performance.memory`).

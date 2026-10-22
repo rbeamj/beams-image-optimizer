@@ -29,12 +29,15 @@ Vite resolves the optional build-tool packages `lightningcss` and platform-speci
 
 ## Photo Studio AI models (optional, not bundled)
 
-The app can use these models after an opt-in; none are committed or included in a default build (`npm run fetch:models` downloads them for local use):
+The app can use these models after an opt-in; none are committed or included in a default build. The browser downloads each one from its Hugging Face repository at a pinned revision on first use (or from the deployment's own `models/` folder when present):
 
 - **BiRefNet lite 512 / 1024** — https://github.com/ZhengPeng7/BiRefNet, MIT. ONNX exports from `studioludens/birefnet-lite-512`, `jiabins0303/birefnet-lite-1024-webgpu` and `onnx-community/BiRefNet_lite-ONNX` (Hugging Face). Code and weights MIT.
 - **U²-Netp** — https://github.com/xuebinqin/U-2-Net, Apache-2.0; ONNX file from the MIT-licensed rembg release assets.
 - **MobileSAM** — https://github.com/ChaoningZhang/MobileSAM, Apache-2.0; ONNX export from `Acly/MobileSAM` (Hugging Face, tagged MIT); retain the upstream Apache-2.0 notice.
 - **MI-GAN** — https://github.com/Picsart-AI-Research/MI-GAN, MIT (code and weights, © 2024 Picsart AI Research); ONNX pipeline from `andraniksargsyan/migan` (Hugging Face, MIT).
+
+- **BiRefNet WebGPU graph patch** — `public/patches/birefnet-lite-1024-webgpu-fp32.json` contains graph structure only (no weights), derived with the MIT-licensed rewrite scripts from https://huggingface.co/jiabins0303/birefnet-lite-1024-webgpu applied to the MIT BiRefNet lite export.
+- **U²-Netp browser source** — https://huggingface.co/BritishWerewolf/U-2-Netp (Apache-2.0), byte-identical to the rembg release file.
 
 Anyone hosting these weights must retain the upstream license notices. Training-dataset terms are separate from these weight licenses; see `docs/model-licensing.md` for the license table, dataset terms and open questions.
 

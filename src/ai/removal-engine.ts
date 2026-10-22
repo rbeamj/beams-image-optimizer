@@ -5,7 +5,7 @@
  */
 import { detectCapabilities, type DeviceCaps } from './capabilities';
 import { deviceSignature, loadProfile, recordResult } from './device-profile';
-import { MODEL_BASE, modelUrl, variantById, type ModelVariant } from './models';
+import { MODEL_BASE, modelUrl, resolveModel, variantById, type ModelVariant } from './models';
 import { OrtWorkerClient, OrtWorkerError, type LoadInfo } from './ort-client';
 import { describeMode, planRemoval, type RemovalMode } from './planner';
 import { maskFromOutput, toModelTensor } from '../bgremove/matte';
@@ -91,12 +91,10 @@ export class RemovalEngine {
     const plan = planRemoval(caps, mode, loadProfile(signature));
     const manifest = await this.installed();
     const fallbacks = [...plan.unavailable];
-    const base = this.options.modelBase ?? MODEL_BASE;
     for (const id of plan.attempts) {
       const variant = variantById(id);
-      const installed = manifest?.files[variant.file];
-      if (manifest && !installed) { fallbacks.push({ variantId: id, reason: 'model not installed' }); continue; }
-      const expectedBytes = installed?.bytes ?? variant.bytes;
+      const resolved = resolveModel(variant.file, manifest, document.baseURI);
+      const expectedBytes = resolved.bytes;
       try {
         // QA hook: ?ai-fail=<variantId>[,<variantId>] simulates an out-of-memory failure to exercise fallback.
         const simulated = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('ai-fail')?.split(',') ?? [] : [];
@@ -106,7 +104,7 @@ export class RemovalEngine {
           this.client = this.options.createClient?.() ?? new OrtWorkerClient();
           onStatus?.({ stage: 'download', label: `Loading ${variant.label}`, loaded: 0, total: expectedBytes });
           const info = await this.client.load(
-            { url: new URL(`${base}${variant.file}`, document.baseURI).href, expectedBytes, provider: variant.provider, wasmPaths: wasmAssetBase(), threads: crossOriginIsolated ? Math.min(4, caps.cores) : 1 },
+            { url: resolved.url, expectedBytes, sha256: resolved.sha256, patchUrl: resolved.patchUrl, provider: variant.provider, wasmPaths: wasmAssetBase(), threads: crossOriginIsolated ? Math.min(4, caps.cores) : 1 },
             (loaded, total) => onStatus?.({ stage: 'download', label: `Loading ${variant.label}`, loaded, total }),
             10 * 60_000,
           );
@@ -136,7 +134,7 @@ export class RemovalEngine {
         onStatus?.({ stage: 'fallback', label: `${variant.label} failed (${kind}); trying a lighter option` });
       }
     }
-    throw new Error(plan.notes[0] ?? `No background-removal model could run on this device. Run "npm run fetch:models -- --fast" if models are missing. Details: ${fallbacks.map(f => `${f.variantId}: ${f.reason}`).join('; ')}`);
+    throw new Error(plan.notes[0] ?? `No background-removal model could run on this device${fallbacks.every(f => /download/.test(f.reason)) ? ' because the model could not be downloaded; check your connection and try again' : ''}. Details: ${fallbacks.map(f => `${f.variantId}: ${f.reason}`).join('; ')}`);
   }
 }
 
