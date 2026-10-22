@@ -1,3 +1,5 @@
+import { readdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 
 /**
@@ -16,9 +18,30 @@ function dropBundledOrtWasm(): Plugin {
   };
 }
 
+/**
+ * Locally fetched model weights and benchmark images live in public/ but must not ship by accident.
+ * Hosting weights is an explicit decision: BEAMS_INCLUDE_MODELS=u2netp.onnx,realesr-general-x4v3.onnx
+ */
+function stripLocalAssets(): Plugin {
+  let outDir = 'dist';
+  return {
+    name: 'strip-local-model-assets',
+    apply: 'build',
+    configResolved(config) { outDir = config.build.outDir; },
+    closeBundle() {
+      const allowed = new Set((process.env.BEAMS_INCLUDE_MODELS ?? '').split(',').map(name => name.trim()).filter(Boolean));
+      rmSync(join(outDir, 'bench'), { recursive: true, force: true });
+      const models = join(outDir, 'models');
+      let entries: string[] = [];
+      try { entries = readdirSync(models); } catch { return; }
+      for (const name of entries) if (name.endsWith('.onnx') && !allowed.has(name)) rmSync(join(models, name), { force: true });
+    },
+  };
+}
+
 export default defineConfig({
   base: './',
-  plugins: [dropBundledOrtWasm()],
+  plugins: [dropBundledOrtWasm(), stripLocalAssets()],
   build: { target: 'es2022', sourcemap: true },
   optimizeDeps: { exclude: ['onnxruntime-web'] },
 });

@@ -8,8 +8,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = join(root, 'node_modules', 'onnxruntime-web', 'dist');
 const dest = join(root, 'public', 'ort');
 
-// WASM-only (no JSEP/WebGPU) keeps the optional asset footprint ~14 MB instead of ~28 MB.
-const files = ['ort-wasm-simd-threaded.wasm', 'ort-wasm-simd-threaded.mjs'];
+// The WASM build (~14 MB) serves CPU inference. The asyncify build (~26 MB) is only fetched when
+// a user opts into WebGPU background removal.
+const files = ['ort-wasm-simd-threaded.wasm', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.asyncify.wasm', 'ort-wasm-simd-threaded.asyncify.mjs'];
 
 await rm(dest, { recursive: true, force: true });
 await mkdir(dest, { recursive: true });

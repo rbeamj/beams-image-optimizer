@@ -27,4 +27,10 @@ Vite resolves the optional build-tool packages `lightningcss` and platform-speci
 - Weights are fetched by `npm run fetch:model` into `public/models/` and are not committed. Anyone redistributing them must retain the BSD-3-Clause notice, conditions, and disclaimer, and must not use the authors' names to endorse derived products.
 - Residual risk: the training data includes DIV2K, whose academic-use terms may not clearly flow through to released weights. See `docs/realesrgan-audit.md`.
 
+## U²-Netp background-removal model (optional, not bundled)
+
+- Source: https://github.com/xuebinqin/U-2-Net — Apache-2.0. The ONNX file (`u2netp.onnx`, 4,574,861 bytes) is downloaded from the MIT-licensed rembg project's release assets by `npm run fetch:bg-model` and is not committed.
+- Residual risk: upstream does not state terms for the DUTS training data. See `docs/background-removal-evaluation.md`.
+- IS-Net and BiRefNet weights are not used by the app: IS-Net's released weights are an academic version, and both were trained on DIS5K, whose terms prohibit commercial use. BiRefNet files can be fetched with `-- --detailed` for benchmarking only.
+
 No model weights are committed to this repository. Each local-AI addition requires a separate review of source, weight, commercial-use, and redistribution terms.

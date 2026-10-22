@@ -23,11 +23,10 @@ This roadmap is directional, not a promise or a delivery schedule. Beams Image O
 
 ## Longer term: local product-photo tools
 
-- Browser-local background removal and transparent backgrounds
-- Background-removal model adoption only after separate code-and-weights license, redistribution, browser-performance, and product-photo quality validation; see [background-removal-evaluation.md](docs/background-removal-evaluation.md)
-- Background replacement, product-photo scenes, and manually controlled shadows
+- Prototype done: background scenes (gradients, uploaded photos, framing, padding, shadows) and opt-in U²-Netp background removal; see [background-removal-evaluation.md](docs/background-removal-evaluation.md)
+- Higher-detail cutouts (hair, laces, glass) once a model with clear training-data terms runs within ordinary-hardware browser limits
 - Batch editing and reusable product-photo templates
-- AI enhancements and optional local upscaling only after source, model-weight, commercial-use, redistribution, device-support, and privacy terms are independently verified
+- Prototype done: opt-in Real-ESRGAN enhance; see [realesrgan-audit.md](docs/realesrgan-audit.md)
 - Additional export formats where browser support makes them practical
 
-No AI model, remote processing service, account system, or image-upload backend is included in the current alpha.
+AI features are opt-in and run in the browser; model weights are fetched separately and never committed. No remote processing service, account system, or image-upload backend is included in the current alpha.

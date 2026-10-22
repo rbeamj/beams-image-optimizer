@@ -48,6 +48,21 @@ npm run bench:enhance # writes docs/realesrgan-benchmark.md
 
 See `docs/realesrgan-audit.md` for the license review and residual training-data risk.
 
+### Backgrounds and optional AI background removal
+
+The Background panel builds marketplace scenes without touching product pixels: transparent, solid, studio gradients, custom gradients, or an uploaded photo (fill or fit); square, 4:5, 4:3, 16:9, or product-ratio frames with padding and positioning; and adjustable ground-contact or drop shadows. Scene changes are undoable and export at the product's native resolution.
+
+Opt-in AI background removal uses U²-Netp (Apache-2.0, 4.6 MB) on the browser CPU (WASM) or WebGPU, with edge cleanup and optional edge refinement. It never runs automatically and the weights are not committed:
+
+```sh
+npm run fetch:bg-model # downloads u2netp.onnx into public/models/
+npm run bench:bg       # native CPU timings
+```
+
+See `docs/background-removal-evaluation.md` for the model and license decisions and benchmark results.
+
+`npm run build` strips fetched `.onnx` files and local benchmark images from `dist/`. To host specific weights deliberately, list them: `BEAMS_INCLUDE_MODELS=u2netp.onnx,realesr-general-x4v3.onnx npm run build`.
+
 ## Develop locally
 
 ```sh

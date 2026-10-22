@@ -151,3 +151,4 @@ vite.config.ts.timestamp-*
 # Local AI assets (fetched / copied; not committed)
 public/models/*.onnx
 public/ort/
+public/bench/

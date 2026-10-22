@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "fetch:model": "node scripts/fetch-realesrgan-model.mjs",
+    "fetch:bg-model": "node scripts/fetch-bg-models.mjs",
+    "bench:bg": "node scripts/benchmark-bg-removal.mjs",
     "copy:ort": "node scripts/copy-ort-assets.mjs",
     "bench:enhance": "node scripts/benchmark-enhance.mjs"
   },
