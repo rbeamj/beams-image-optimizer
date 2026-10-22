@@ -719,7 +719,7 @@ export function initEditor() {
     refreshOverlay: () => syncMaskOverlay(),
     blocked: () => !!cropFrame || removing || enhancing,
   });
-  if (import.meta.env.DEV) Object.assign(window, { __studio: { layers: () => ({ ...layers }), src: () => image?.getSrc(), scene: () => structuredClone(scene) } });
+  if (import.meta.env.DEV) Object.assign(window, { __studio: { layers: () => ({ ...layers }), src: () => image?.getSrc(), scene: () => structuredClone(scene), objects: () => studio.getObjects().map(o => ({ type: o.type, isImage: o === image, visible: o.visible, opacity: o.opacity, left: Math.round(o.left ?? 0), top: Math.round(o.top ?? 0), scaleX: o.scaleX, width: o.width, height: o.height, clip: !!o.clipPath, cacheKey: (o as FabricImage).cacheKey })), refilter: (withFilters = true) => { if (!image) return; if (!withFilters) image.filters = []; image.applyFilters(); studio.requestRenderAll(); } } });
 
   const api = {
     load(file: File) { void load(file); },
