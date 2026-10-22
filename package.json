@@ -4,18 +4,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/copy-ort-assets.mjs && vite",
+    "prebuild": "node scripts/copy-ort-assets.mjs",
     "build": "tsc -b && vite build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "fetch:model": "node scripts/fetch-realesrgan-model.mjs",
+    "copy:ort": "node scripts/copy-ort-assets.mjs",
+    "bench:enhance": "node scripts/benchmark-enhance.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "onnxruntime-node": "^1.30.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"
   },
   "dependencies": {
-    "fabric": "^7.4.0"
+    "fabric": "^7.4.0",
+    "onnxruntime-web": "^1.30.0"
   }
 }

@@ -1,18 +1,19 @@
 import { Canvas, FabricImage, filters, Point, Rect } from 'fabric';
 import { centerCrop, comparisonClip, normalizedAdjustment, sharpenMatrix, SnapshotHistory, temperatureMatrix, type CropRect } from './tools';
+import { acknowledgeEnhanceLicense, enhanceImage, ENHANCE_LICENSE_SUMMARY, hasAcknowledgedEnhanceLicense, resizeBaseline, type EnhanceTargetEdge } from '../enhance';
 
 type Adjustments = {
   exposure: number; brightness: number; contrast: number; saturation: number;
   temperature: number; sharpness: number; rotation: number; flipX: boolean; flipY: boolean;
   preset: 'none' | 'grayscale' | 'sepia';
 };
-type Snapshot = { canvas: unknown; adjustments: Adjustments; crop: CropRect };
+type Snapshot = { canvas: unknown; adjustments: Adjustments; crop: CropRect; original: { width: number; height: number }; comparisonUrl: string };
 const defaults = (): Adjustments => ({ exposure: 0, brightness: 0, contrast: 0, saturation: 0, temperature: 0, sharpness: 0, rotation: 0, flipX: false, flipY: false, preset: 'none' });
 
 export function initEditor() {
   const panelTabs = document.querySelector<HTMLElement>('.editor-panel .panel-tabs')!;
-  panelTabs.insertAdjacentHTML('beforeend', '<button data-panel-tab="background" type="button">Background</button>');
-  document.querySelector<HTMLElement>('[data-editor-panel="export"]')!.insertAdjacentHTML('beforebegin', '<div data-editor-panel="background" hidden><fieldset><legend>Product background</legend><p class="hint">Use a solid background with images that already have transparent pixels. Your original remains unchanged.</p><label>Color <input id="background-color" type="color" value="#ffffff" /></label><div class="tool-buttons"><button id="apply-background" type="button">Apply color</button><button id="clear-background" type="button">Transparent</button></div><p class="hint">Automatic background removal is not included until a browser-local model passes license and performance review.</p></fieldset></div>');
+  panelTabs.insertAdjacentHTML('beforeend', '<button data-panel-tab="background" type="button">Background</button><button data-panel-tab="enhance" type="button">Enhance</button>');
+  document.querySelector<HTMLElement>('[data-editor-panel="export"]')!.insertAdjacentHTML('beforebegin', '<div data-editor-panel="background" hidden><fieldset><legend>Product background</legend><p class="hint">Use a solid background with images that already have transparent pixels. Your original remains unchanged.</p><label>Color <input id="background-color" type="color" value="#ffffff" /></label><div class="tool-buttons"><button id="apply-background" type="button">Apply color</button><button id="clear-background" type="button">Transparent</button></div><p class="hint">Automatic background removal is not included until a browser-local model passes license and performance review.</p></fieldset></div><div data-editor-panel="enhance" hidden><fieldset><legend>AI Enhance</legend><p class="hint" id="enhance-license-text"></p><div id="enhance-ack"><button id="ack-enhance" type="button">Enable optional AI Enhance</button></div><div id="enhance-controls" hidden><div class="edge-grid" style="grid-template-columns:1fr 1fr"><label><input type="radio" name="enhance-edge" value="1024" checked />1024px</label><label><input type="radio" name="enhance-edge" value="2048" />2048px</label></div><div class="tool-buttons"><button id="run-enhance" type="button">Run local enhance</button><button id="clear-enhance" type="button" disabled>Use original pixels</button></div></div><p class="hint">Never runs automatically. Compare shows a standard resize versus the AI result.</p><p id="enhance-status" class="hint" role="status">AI Enhance is off until you opt in.</p></fieldset></div>');
   const element = document.querySelector<HTMLCanvasElement>('#editor-canvas')!;
   const stage = document.querySelector<HTMLElement>('#editor-stage')!;
   const empty = document.querySelector<HTMLElement>('#editor-empty')!;
@@ -27,7 +28,11 @@ export function initEditor() {
   let comparisonImage: FabricImage | undefined;
   let originalFile: File | undefined;
   let objectUrl = '';
+  let comparisonUrl = '';
   let original = { width: 0, height: 0 };
+  let pristine = { width: 0, height: 0 };
+  const generatedUrls: string[] = [];
+  let enhancing = false;
   let crop: CropRect = { width: 0, height: 0, x: 0, y: 0 };
   let cropFrame: Rect | undefined;
   const history = new SnapshotHistory<Snapshot>();
@@ -67,6 +72,35 @@ export function initEditor() {
     document.querySelector<HTMLButtonElement>('#undo')!.disabled = !history.canUndo();
     document.querySelector<HTMLButtonElement>('#redo')!.disabled = !history.canRedo();
   };
+  const syncEnhanceGate = () => {
+    const ack = document.querySelector<HTMLElement>('#enhance-ack')!;
+    const controls = document.querySelector<HTMLElement>('#enhance-controls')!;
+    const licenseText = document.querySelector<HTMLElement>('#enhance-license-text')!;
+    licenseText.textContent = ENHANCE_LICENSE_SUMMARY;
+    if (hasAcknowledgedEnhanceLicense()) {
+      ack.hidden = true;
+      controls.hidden = false;
+    } else {
+      ack.hidden = false;
+      controls.hidden = true;
+    }
+  };
+  const setEnhanceStatus = (text: string) => {
+    const status = document.querySelector<HTMLElement>('#enhance-status')!;
+    status.textContent = text;
+  };
+  const updateClearEnhance = () => {
+    const button = document.querySelector<HTMLButtonElement>('#clear-enhance')!;
+    button.disabled = original.width === pristine.width && original.height === pristine.height;
+  };
+  const canvasUrl = (canvas: HTMLCanvasElement): Promise<string> => new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) return reject(new Error('Canvas encoding failed.'));
+      const url = URL.createObjectURL(blob);
+      generatedUrls.push(url);
+      resolve(url);
+    }, 'image/png');
+  });
   const syncBackground = () => {
     if (!background || !image) return;
     background.set({ left: image.left, top: image.top, originX: 'center', originY: 'center', width: image.width, height: image.height, scaleX: image.scaleX, scaleY: image.scaleY, angle: image.angle });
@@ -92,7 +126,7 @@ export function initEditor() {
   const remember = () => {
     if (restoring || cropFrame) return;
     if (comparisonImage) studio.remove(comparisonImage);
-    history.push({ canvas: studio.toJSON(), adjustments: { ...adjustments }, crop: { ...crop } });
+    history.push({ canvas: studio.toJSON(), adjustments: { ...adjustments }, crop: { ...crop }, original: { ...original }, comparisonUrl });
     if (comparisonImage) {
       studio.add(comparisonImage);
       studio.bringObjectToFront(comparisonImage);
@@ -108,9 +142,9 @@ export function initEditor() {
       return;
     }
     if (!comparisonImage) {
-      const currentUrl = objectUrl;
+      const currentUrl = comparisonUrl;
       const overlay = await FabricImage.fromURL(currentUrl);
-      if (!compare.checked || currentUrl !== objectUrl || !image) return;
+      if (!compare.checked || currentUrl !== comparisonUrl || !image) return;
       comparisonImage = overlay;
       studio.add(comparisonImage);
     }
@@ -207,19 +241,26 @@ export function initEditor() {
     background = studio.getObjects().find(object => object.type === 'rect') as Rect | undefined;
     Object.assign(adjustments, snapshot.adjustments);
     crop = { ...snapshot.crop };
+    original = { ...snapshot.original };
+    comparisonUrl = snapshot.comparisonUrl;
     restoring = false;
     sync();
     applyAdjustments();
     updateHistory();
+    updateClearEnhance();
   };
   const load = async (file: File) => {
+    for (const url of generatedUrls) URL.revokeObjectURL(url);
+    generatedUrls.length = 0;
     originalFile = file;
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = URL.createObjectURL(file);
+    comparisonUrl = objectUrl;
     studio.clear();
     background = undefined;
     image = await FabricImage.fromURL(objectUrl);
     original = { width: image.width!, height: image.height! };
+    pristine = { ...original };
     crop = { x: 0, y: 0, width: original.width, height: original.height };
     image.set({ selectable: false, evented: false, originX: 'center', originY: 'center' });
     studio.add(image);
@@ -232,6 +273,7 @@ export function initEditor() {
     sync();
     applyAdjustments();
     remember();
+    updateClearEnhance();
   };
 
   resize();
@@ -246,6 +288,49 @@ export function initEditor() {
   document.querySelector<HTMLSelectElement>('#filter-preset')!.addEventListener('change', (event) => { adjustments.preset = (event.target as HTMLSelectElement).value as Adjustments['preset']; commit(); });
   document.querySelector('#apply-background')!.addEventListener('click', () => applyBackground(document.querySelector<HTMLInputElement>('#background-color')!.value));
   document.querySelector('#clear-background')!.addEventListener('click', clearBackground);
+  syncEnhanceGate();
+  document.querySelector('#ack-enhance')!.addEventListener('click', () => {
+    acknowledgeEnhanceLicense();
+    syncEnhanceGate();
+    setEnhanceStatus('Ready. Enhance runs on the WASM CPU backend in this browser.');
+  });
+  document.querySelector('#run-enhance')!.addEventListener('click', async () => {
+    if (!image || !originalFile || enhancing) return;
+    enhancing = true;
+    const runButton = document.querySelector<HTMLButtonElement>('#run-enhance')!;
+    const clearButton = document.querySelector<HTMLButtonElement>('#clear-enhance')!;
+    runButton.disabled = true;
+    clearButton.disabled = true;
+    const status = document.querySelector<HTMLElement>('#enhance-status')!;
+    const edgeInput = document.querySelector<HTMLInputElement>('input[name="enhance-edge"]:checked')!;
+    const target = Number(edgeInput.value) as EnhanceTargetEdge;
+    let bitmap: ImageBitmap | undefined;
+    try {
+      bitmap = await createImageBitmap(originalFile, { imageOrientation: 'from-image' });
+      const result = await enhanceImage(bitmap, { targetEdge: target, onProgress: (_f, label) => { status.textContent = label; } });
+      const baseline = resizeBaseline(bitmap, result.width, result.height);
+      const enhancedUrl = await canvasUrl(result.canvas);
+      const baselineUrl = await canvasUrl(baseline);
+      await swapImage(enhancedUrl, baselineUrl);
+      status.textContent = `Enhanced to ${result.width}×${result.height} with ${result.provider.toUpperCase()} in ${result.elapsedMs} ms (≈${(result.peakBytesEstimate / 1_048_576).toFixed(1)} MB working set). Undo restores the previous step; the original file is untouched.`;
+      updateClearEnhance();
+    } catch (error) {
+      const message = error instanceof DOMException && error.name === 'AbortError' ? 'Enhancement cancelled.' : (error as Error).message;
+      status.textContent = `${message} Run "npm run fetch:model" if the model file is missing.`;
+    } finally {
+      bitmap?.close();
+      enhancing = false;
+      runButton.disabled = false;
+      clearButton.disabled = false;
+      updateClearEnhance();
+    }
+  });
+  document.querySelector('#clear-enhance')!.addEventListener('click', async () => {
+    if (!image) return;
+    await swapImage(objectUrl, objectUrl);
+    setEnhanceStatus('Restored original pixels.');
+    updateClearEnhance();
+  });
   compare.addEventListener('change', () => void updateComparison());
   comparePosition.addEventListener('input', () => void updateComparison());
   document.querySelector('#undo')!.addEventListener('click', () => void restore(history.undo()));
@@ -266,6 +351,25 @@ export function initEditor() {
   studio.on('mouse:wheel', (event) => { const wheel = event.e as WheelEvent; wheel.preventDefault(); const next = Math.min(4, Math.max(.2, studio.getZoom() * (wheel.deltaY < 0 ? 1.1 : .9))); studio.zoomToPoint(new Point(wheel.offsetX, wheel.offsetY), next); document.querySelector('#zoom-value')!.textContent = `${Math.round(next * 100)}%`; });
   document.addEventListener('keydown', (event) => { if (!(event.ctrlKey || event.metaKey) || event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return; if (event.key.toLowerCase() === 'z') { event.preventDefault(); void restore(event.shiftKey ? history.redo() : history.undo()); } if (event.key.toLowerCase() === 'y') { event.preventDefault(); void restore(history.redo()); } });
 
+  const swapImage = async (url: string, nextComparisonUrl: string) => {
+    if (!image) return;
+    const next = await FabricImage.fromURL(url);
+    const fx = next.width / original.width;
+    const fy = next.height / original.height;
+    crop = { x: crop.x * fx, y: crop.y * fy, width: crop.width * fx, height: crop.height * fy };
+    original = { width: next.width, height: next.height };
+    next.set({ selectable: false, evented: false, originX: 'center', originY: 'center', cropX: crop.x, cropY: crop.y, width: crop.width, height: crop.height });
+    const index = studio.getObjects().indexOf(image);
+    studio.remove(image);
+    studio.insertAt(index, next);
+    image = next;
+    if (comparisonImage) studio.remove(comparisonImage);
+    comparisonImage = undefined;
+    comparisonUrl = nextComparisonUrl;
+    centerImage();
+    commit();
+  };
+
   return {
     load(file: File) { void load(file); },
     async exportFile() {
@@ -283,6 +387,6 @@ export function initEditor() {
       const blob = await (await fetch(dataUrl)).blob();
       return new File([blob], `${title.textContent || 'image'}-edited.png`, { type: 'image/png' });
     },
-    dispose() { if (objectUrl) URL.revokeObjectURL(objectUrl); studio.dispose(); }
+    dispose() { if (objectUrl) URL.revokeObjectURL(objectUrl); for (const url of generatedUrls) URL.revokeObjectURL(url); generatedUrls.length = 0; studio.dispose(); }
   };
 }

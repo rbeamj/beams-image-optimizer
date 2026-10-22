@@ -35,7 +35,18 @@ Quick Optimize and Photo Studio intentionally share the same import queue, outpu
 
 ## Browser support and limitations
 
-Use a current desktop or mobile browser with Canvas, Blob, and image-decoding support. WebP output and EXIF orientation behavior depend on the browser. Inputs are limited to JPEG, PNG, and WebP files up to 50 MB. A canvas encoder cannot be forcibly stopped mid-encode, so cancellation takes effect at the next safe processing boundary. This is an alpha editor. Advanced background-removal, scenes, and upscaling are deliberately not included until their model weights, commercial-use terms, redistribution terms, performance, and privacy tradeoffs are independently reviewed.
+Use a current desktop or mobile browser with Canvas, Blob, and image-decoding support. WebP output and EXIF orientation behavior depend on the browser. Inputs are limited to JPEG, PNG, and WebP files up to 50 MB. A canvas encoder cannot be forcibly stopped mid-encode, so cancellation takes effect at the next safe processing boundary. This is an alpha editor. AI features are opt-in, run in the browser, and are only added after their model weights, commercial-use terms, redistribution terms, performance, and privacy tradeoffs are reviewed.
+
+### Optional AI Enhance (Real-ESRGAN)
+
+Photo Studio's Enhance panel can upscale to a 1024px or 2048px longest edge with `realesr-general-x4v3` through ONNX Runtime Web (WASM, no GPU required). It never runs automatically and stays off until acknowledged. Weights are not committed:
+
+```sh
+npm run fetch:model   # downloads realesr-general-x4v3.onnx into public/models/
+npm run bench:enhance # writes docs/realesrgan-benchmark.md
+```
+
+See `docs/realesrgan-audit.md` for the license review and residual training-data risk.
 
 ## Develop locally
 
