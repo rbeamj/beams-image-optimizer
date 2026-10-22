@@ -66,13 +66,29 @@ export function initEditor() {
   let cropFrame: Rect | undefined;
   let maskOverlay: FabricImage | undefined;
   let maskVisible = false;
-  /** Committed image URL while a tool preview is on screen. */
-  let previewFrom: string | undefined;
+  /** Uncommitted tool result drawn in place of the subject; the committed image stays underneath, hidden. */
+  let previewOverlay: FabricImage | undefined;
+  const placement = (from: FabricImage) => ({ left: from.left, top: from.top, originX: from.originX, originY: from.originY, scaleX: from.scaleX, scaleY: from.scaleY, angle: from.angle, flipX: from.flipX, flipY: from.flipY, cropX: from.cropX, cropY: from.cropY, width: from.width, height: from.height, selectable: false, evented: false });
+  const syncPreviewOverlay = () => {
+    if (!previewOverlay || !image) return;
+    previewOverlay.set({ ...placement(image), shadow: image.shadow, clipPath: image.clipPath });
+    if (previewOverlay.filters !== image.filters) { previewOverlay.filters = image.filters; previewOverlay.applyFilters(); }
+    if (!studio.getObjects().includes(previewOverlay)) studio.insertAt(studio.getObjects().indexOf(image) + 1, previewOverlay);
+    image.visible = false;
+    studio.requestRenderAll();
+  };
+  const clearPreview = () => {
+    if (!previewOverlay) return;
+    studio.remove(previewOverlay);
+    previewOverlay = undefined;
+    if (image) image.visible = true;
+    studio.requestRenderAll();
+  };
   const syncMaskOverlay = () => {
     if (!maskOverlay) return;
     if (!image || !maskVisible) { studio.remove(maskOverlay); studio.requestRenderAll(); return; }
     if (!studio.getObjects().includes(maskOverlay)) studio.add(maskOverlay);
-    maskOverlay.set({ left: image.left, top: image.top, originX: image.originX, originY: image.originY, scaleX: image.scaleX, scaleY: image.scaleY, angle: image.angle, flipX: image.flipX, flipY: image.flipY, cropX: image.cropX, cropY: image.cropY, width: image.width, height: image.height, opacity: 0.5, selectable: false, evented: false, objectCaching: false });
+    maskOverlay.set({ ...placement(image), opacity: 0.5, objectCaching: false });
     maskOverlay.dirty = true;
     studio.bringObjectToFront(maskOverlay);
     studio.requestRenderAll();
@@ -108,7 +124,7 @@ export function initEditor() {
     const box = alphaBounds(ctx.getImageData(0, 0, probe.width, probe.height).data, probe.width, probe.height);
     if (box) opaqueBounds = { left: box.left / k, top: box.top / k, width: box.width / k, height: box.height / k };
   };
-  const layoutScene = () => { layoutSceneObjects(); syncMaskOverlay(); };
+  const layoutScene = () => { layoutSceneObjects(); syncPreviewOverlay(); syncMaskOverlay(); };
   const layoutSceneObjects = () => {
     sceneObjects.forEach((obj) => studio.remove(obj));
     sceneObjects = [];
@@ -266,6 +282,7 @@ export function initEditor() {
     if (comparisonImage) studio.remove(comparisonImage);
     sceneObjects.forEach((obj) => studio.remove(obj));
     if (maskOverlay) studio.remove(maskOverlay);
+    if (previewOverlay) { studio.remove(previewOverlay); if (image) image.visible = true; }
     history.push({ canvas: studio.toJSON(), adjustments: { ...adjustments }, crop: { ...crop }, original: { ...original }, comparisonUrl, scene: structuredClone(scene), backdrop: structuredClone(backdrop), layers: { ...layers } });
     layoutScene();
     if (comparisonImage) {
@@ -381,7 +398,7 @@ export function initEditor() {
     if (!snapshot) return;
     restoring = true;
     comparisonImage = undefined;
-    previewFrom = undefined;
+    previewOverlay = undefined;
     aiTools.reset();
     await studio.loadFromJSON(snapshot.canvas as never);
     image = studio.getObjects().find(object => object.type === 'image') as FabricImage | undefined;
@@ -407,7 +424,7 @@ export function initEditor() {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = URL.createObjectURL(file);
     comparisonUrl = objectUrl;
-    previewFrom = undefined;
+    previewOverlay = undefined;
     aiTools.reset();
     studio.clear();
     image = await FabricImage.fromURL(objectUrl);
@@ -551,6 +568,16 @@ export function initEditor() {
     const status = document.querySelector<HTMLElement>('#enhance-status')!;
     const edgeInput = document.querySelector<HTMLInputElement>('input[name="enhance-edge"]:checked')!;
     const target = Number(edgeInput.value) as EnhanceTargetEdge;
+    const alreadyLarge = Math.max(layers.width, layers.height) >= target;
+    if ((layers.enhancedTo && layers.enhancedTo >= target) || alreadyLarge) {
+      status.textContent = layers.enhancedTo && layers.enhancedTo >= target
+        ? `This photo is already enhanced to ${layers.enhancedTo}px, so nothing was reprocessed. Use original pixels (or Undo) to start over.`
+        : `This photo is already ${layers.width}×${layers.height}; Enhance only upscales photos smaller than ${target}px, so nothing was changed.`;
+      enhancing = false;
+      runButton.disabled = false;
+      updateClearEnhance();
+      return;
+    }
     try {
       // Enhance the current photo layer (keeps earlier cleanup); identical requests reuse the cached result.
       const key = `${layers.baseUrl}|${target}`;
@@ -637,11 +664,12 @@ export function initEditor() {
   document.addEventListener('keydown', (event) => { if (!(event.ctrlKey || event.metaKey) || event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return; if (event.key.toLowerCase() === 'z') { event.preventDefault(); void restore(event.shiftKey ? history.redo() : history.undo()); } if (event.key.toLowerCase() === 'y') { event.preventDefault(); void restore(history.redo()); } });
 
   const applyLayers = async (next: SubjectLayers, nextComparisonUrl: string) => {
+    if (previewOverlay) { clearPreview(); aiTools.reset(); }
     const url = await compositeUrl(next, registerUrl);
     layers = next;
     await swapImage(url, nextComparisonUrl);
   };
-  const swapImage = async (url: string, nextComparisonUrl: string, record = true) => {
+  const swapImage = async (url: string, nextComparisonUrl: string) => {
     if (!image) return;
     const next = await FabricImage.fromURL(url);
     const fx = next.width / original.width;
@@ -658,24 +686,21 @@ export function initEditor() {
     comparisonImage = undefined;
     comparisonUrl = nextComparisonUrl;
     layoutScene();
-    if (record) commit(); else applyAdjustments();
+    commit();
   };
   const aiTools = mountAiTools({
     studio,
     layers: () => layers,
-    displayUrl: () => image ? previewFrom ?? image.getSrc() : undefined,
+    displayUrl: () => image?.getSrc(),
     commit: (next, comparison) => applyLayers(next, comparison),
-    preview: async (next) => {
+    preview: (pixels) => {
       if (!image) return;
-      previewFrom ??= image.getSrc();
-      await swapImage(await compositeUrl(next, registerUrl), comparisonUrl, false);
+      if (previewOverlay) previewOverlay.setElement(pixels);
+      else previewOverlay = new FabricImage(pixels);
+      previewOverlay.filters = [];
+      syncPreviewOverlay();
     },
-    cancelPreview: async () => {
-      if (!previewFrom) return;
-      const url = previewFrom;
-      previewFrom = undefined;
-      await swapImage(url, comparisonUrl, false);
-    },
+    cancelPreview: clearPreview,
     registerUrl,
     toImagePixel: (e) => {
       if (!image) return null;
@@ -699,7 +724,7 @@ export function initEditor() {
   const api = {
     load(file: File) { void load(file); },
     /** True while a Magic Click or cleanup preview awaits Accept/Reject. */
-    pendingPreview: () => previewFrom !== undefined,
+    pendingPreview: () => previewOverlay !== undefined,
     async exportFile() {
       if (!image) return undefined;
       const overlay = comparisonImage;

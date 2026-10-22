@@ -28,7 +28,7 @@ export class InpaintEngine {
       try {
         const variant = variantById(`migan-${provider}`);
         this.client = new OrtWorkerClient();
-        const info = await this.client.load({ url: new URL(`${MODEL_BASE}${variant.file}`, document.baseURI).href, expectedBytes: manifest?.files[variant.file]?.bytes ?? variant.bytes, provider, wasmPaths: wasmAssetBase(), threads: crossOriginIsolated ? Math.min(4, caps.cores) : 1 }, (l, t) => onStatus?.('Downloading MI-GAN', l, t), 5 * 60_000);
+        const info = await this.client.load({ url: new URL(`${MODEL_BASE}${variant.file}`, document.baseURI).href, expectedBytes: manifest?.files[variant.file]?.bytes ?? variant.bytes, provider, wasmPaths: wasmAssetBase(), threads: crossOriginIsolated ? Math.min(4, caps.cores) : 1 }, (l, t) => onStatus?.('Loading MI-GAN', l, t), 5 * 60_000);
         this.session = { ...info, provider };
         return this.session;
       } catch (error) {

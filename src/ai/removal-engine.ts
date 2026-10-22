@@ -107,7 +107,7 @@ export class RemovalEngine {
           onStatus?.({ stage: 'download', label: `Loading ${variant.label}`, loaded: 0, total: expectedBytes });
           const info = await this.client.load(
             { url: new URL(`${base}${variant.file}`, document.baseURI).href, expectedBytes, provider: variant.provider, wasmPaths: wasmAssetBase(), threads: crossOriginIsolated ? Math.min(4, caps.cores) : 1 },
-            (loaded, total) => onStatus?.({ stage: 'download', label: `Downloading ${variant.label}`, loaded, total }),
+            (loaded, total) => onStatus?.({ stage: 'download', label: `Loading ${variant.label}`, loaded, total }),
             10 * 60_000,
           );
           this.loaded = { variantId: id, info };

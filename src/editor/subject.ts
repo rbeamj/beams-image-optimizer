@@ -46,6 +46,13 @@ export function context(width: number, height: number) {
   return { canvas, ctx };
 }
 
+/** In-memory canvas holding RGBA pixels (no encoding), for fast previews. */
+export function rgbaCanvas(rgba: Uint8ClampedArray<ArrayBuffer>, width: number, height: number) {
+  const { canvas, ctx } = context(width, height);
+  ctx.putImageData(new ImageData(rgba, width, height), 0, 0);
+  return canvas;
+}
+
 export function canvasToUrl(canvas: HTMLCanvasElement, register: UrlRegistry): Promise<string> {
   return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(register(URL.createObjectURL(blob))) : reject(new Error('Could not encode layer.')), 'image/png'));
 }

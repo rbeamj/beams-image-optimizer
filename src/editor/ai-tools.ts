@@ -6,15 +6,16 @@ import type { Canvas, TPointerEvent } from 'fabric';
 import { SamEngine, type SamCandidates } from '../ai/sam-engine';
 import { InpaintEngine } from '../ai/inpaint-engine';
 import { combineMatte, type ClickPoint, type RefineAction } from './refine-tools';
-import { loadImage, matteFromUrl, matteToUrl, pixels, context, canvasToUrl, type SubjectLayers } from './subject';
+import { applyMatteAlpha, canvasToUrl, context, loadImage, matteFromUrl, matteToUrl, pixels, rgbaCanvas, type SubjectLayers } from './subject';
 
 export type ToolHost = {
   studio: Canvas;
   layers(): SubjectLayers;
   displayUrl(): string | undefined;
   commit(next: SubjectLayers, comparisonUrl: string): Promise<void>;
-  preview(next: SubjectLayers): Promise<void>;
-  cancelPreview(): Promise<void>;
+  /** Shows an uncommitted result in place of the subject (never recorded in history or exported). */
+  preview(pixels: HTMLCanvasElement): void;
+  cancelPreview(): void;
   registerUrl(url: string): string;
   toImagePixel(e: TPointerEvent): { x: number; y: number } | null;
   setMaskOverlay(canvas: HTMLCanvasElement | null, visible: boolean): void;
@@ -37,14 +38,14 @@ export function mountAiTools(host: ToolHost) {
   const active = () => !host.blocked() && host.displayUrl() !== undefined ? (!refinePanel.hidden ? 'refine' : !cleanupPanel.hidden ? 'cleanup' : null) : null;
 
   // ---- Magic Click ----
-  type RefineSession = { key: string; base: Float32Array; points: ClickPoint[]; candidates?: SamCandidates; pick: number; matte?: Float32Array; matteUrl?: string };
+  type RefineSession = { key: string; base: Float32Array; rgba: Uint8ClampedArray; points: ClickPoint[]; candidates?: SamCandidates; pick: number; matte?: Float32Array };
   let session: RefineSession | undefined;
   let refineBusy = false;
   const refineStatus = (text: string) => { $('#refine-status').textContent = text; };
   const refineProgress = (loaded?: number, total?: number) => { const p = $<HTMLProgressElement>('#refine-progress'); p.hidden = !total; if (total) p.value = (loaded ?? 0) / total; };
   const refineAction = () => ($<HTMLInputElement>('input[name="refine-action"]:checked').value as RefineAction);
   const syncRefine = () => {
-    $<HTMLButtonElement>('#refine-accept').disabled = !session?.matteUrl || refineBusy;
+    $<HTMLButtonElement>('#refine-accept').disabled = !session?.matte || refineBusy;
     $<HTMLButtonElement>('#refine-reject').disabled = !session?.points.length || refineBusy;
     $<HTMLButtonElement>('#refine-alt').disabled = !session?.candidates || session.candidates.order.length < 2 || refineBusy;
   };
@@ -53,22 +54,22 @@ export function mountAiTools(host: ToolHost) {
     if (!session?.candidates) return;
     const c = session.candidates;
     const action = refineAction();
-    session.matte = combineMatte(session.base, c.masks[c.order[session.pick % c.order.length]!]!, action, c.width, Math.max(2, Math.round(Math.max(c.width, c.height) / 300)));
-    session.matteUrl = await matteToUrl(session.matte, c.width, c.height, host.registerUrl);
-    await host.preview({ ...host.layers(), matteUrl: session.matteUrl });
+    session.matte = combineMatte(session.base, c.mask(c.order[session.pick % c.order.length]!), action, c.width, Math.max(2, Math.round(Math.max(c.width, c.height) / 300)));
+    host.preview(rgbaCanvas(applyMatteAlpha(session.rgba, session.matte), c.width, c.height));
   };
   const endRefine = async (accept: boolean) => {
     if (!session) return;
     const done = session;
     session = undefined;
-    if (accept && done.matteUrl) {
-      const before = host.displayUrl()!;
-      await host.cancelPreview();
+    if (accept && done.matte) {
       const layers = host.layers();
-      await host.commit({ ...layers, matteUrl: done.matteUrl, refined: (layers.refined ?? 0) + 1 }, before);
+      const matteUrl = await matteToUrl(done.matte, layers.width, layers.height, host.registerUrl);
+      const before = host.displayUrl()!;
+      host.cancelPreview();
+      await host.commit({ ...layers, matteUrl, refined: (layers.refined ?? 0) + 1 }, before);
       refineStatus('Cutout updated. Undo restores the previous cutout; click again to keep refining.');
     } else {
-      await host.cancelPreview();
+      host.cancelPreview();
       refineStatus('Change discarded. Your cutout is unchanged.');
     }
     syncRefine();
@@ -80,12 +81,12 @@ export function mountAiTools(host: ToolHost) {
     const layers = host.layers();
     try {
       if (!session || session.key !== layerKey(layers)) {
-        if (session) await host.cancelPreview();
+        if (session) host.cancelPreview();
         const base = layers.matteUrl ? await matteFromUrl(layers.matteUrl, layers.width, layers.height) : new Float32Array(layers.width * layers.height).fill(refineAction() === 'keep' ? 0 : 1);
-        session = { key: layerKey(layers), base, points: [], pick: 0 };
+        session = { key: layerKey(layers), base, rgba: (await pixels(layers.baseUrl, layers.width, layers.height)).data, points: [], pick: 0 };
       }
       const t0 = performance.now();
-      const encodeMs = await sam.encode(layers.baseUrl, await loadImage(layers.baseUrl), layers.width, layers.height, (label, l, t) => { refineStatus(`${label}…${percent(l, t)}`); refineProgress(l, t); });
+      const encodeMs = await sam.encode(layers.baseUrl, () => loadImage(layers.baseUrl), layers.width, layers.height, (label, l, t) => { refineStatus(`${label}…${percent(l, t)}`); refineProgress(l, t); });
       refineProgress();
       session.points.push({ x, y, label: exclude ? 0 : 1 });
       refineStatus('Selecting…');
@@ -95,7 +96,7 @@ export function mountAiTools(host: ToolHost) {
       refineStatus(`Preview: ${session.points.length} click${session.points.length > 1 ? 's' : ''} (${Math.round(performance.now() - t0)} ms${encodeMs ? `, photo analysed in ${encodeMs} ms` : ''}, ${sam.provider === 'webgpu' ? 'WebGPU' : 'CPU'}). Accept to keep it, Reject to discard.`);
     } catch (error) {
       refineProgress();
-      if (session) { session.points.pop(); if (!session.points.length) { session = undefined; await host.cancelPreview(); } }
+      if (session) { session.points.pop(); if (!session.points.length) { session = undefined; host.cancelPreview(); } }
       refineStatus(`${(error as Error).message} Your cutout is unchanged.`);
     } finally {
       refineBusy = false;
@@ -110,7 +111,7 @@ export function mountAiTools(host: ToolHost) {
   // ---- Object cleanup ----
   let mask: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; key: string; painted: boolean } | undefined;
   let painting: { x: number; y: number } | undefined;
-  let pending: { baseUrl: string } | undefined;
+  let pending: { rgba: Uint8ClampedArray<ArrayBuffer> } | undefined;
   let cleanupBusy = false;
   const cleanupStatus = (text: string) => { $('#cleanup-status').textContent = text; };
   const cleanupProgress = (loaded?: number, total?: number) => { const p = $<HTMLProgressElement>('#cleanup-progress'); p.hidden = !total; if (total) p.value = (loaded ?? 0) / total; };
@@ -160,10 +161,9 @@ export function mountAiTools(host: ToolHost) {
       const photo = await pixels(layers.baseUrl, layers.width, layers.height);
       const result = await inpaint.inpaint(photo.data, maskBits(), layers.width, layers.height, (label, l, t) => { cleanupStatus(`${label}…${percent(l, t)}`); cleanupProgress(l, t); });
       cleanupProgress();
-      const { canvas, ctx } = context(layers.width, layers.height);
-      ctx.putImageData(new ImageData(result.rgba, layers.width, layers.height), 0, 0);
-      pending = { baseUrl: await canvasToUrl(canvas, host.registerUrl) };
-      await host.preview({ ...layers, baseUrl: pending.baseUrl });
+      pending = { rgba: result.rgba };
+      const matte = layers.matteUrl ? await matteFromUrl(layers.matteUrl, layers.width, layers.height) : null;
+      host.preview(rgbaCanvas(matte ? applyMatteAlpha(result.rgba, matte) : result.rgba, layers.width, layers.height));
       cleanupStatus(`Preview ready in ${Math.round(performance.now() - t0)} ms (model ${result.ms} ms, ${result.provider === 'webgpu' ? 'WebGPU' : 'CPU'}). Accept to keep it or Reject to try again.`);
     } catch (error) {
       cleanupProgress();
@@ -178,15 +178,16 @@ export function mountAiTools(host: ToolHost) {
     const done = pending;
     pending = undefined;
     if (accept) {
-      const before = host.displayUrl()!;
-      await host.cancelPreview();
       const layers = host.layers();
-      await host.commit({ ...layers, baseUrl: done.baseUrl, cleaned: (layers.cleaned ?? 0) + 1 }, before);
+      const baseUrl = await canvasToUrl(rgbaCanvas(done.rgba, layers.width, layers.height), host.registerUrl);
+      const before = host.displayUrl()!;
+      host.cancelPreview();
+      await host.commit({ ...layers, baseUrl, cleaned: (layers.cleaned ?? 0) + 1 }, before);
       clearMask();
       mask = undefined;
       cleanupStatus('Object removed. Undo restores it; paint again for another cleanup.');
     } else {
-      await host.cancelPreview();
+      host.cancelPreview();
       cleanupStatus('Result discarded. Adjust the paint and press Remove again.');
     }
     syncCleanup();

@@ -8,7 +8,8 @@ import { MODEL_BASE, variantById } from './models';
 import { OrtWorkerClient, type LoadInfo, type TensorPayload } from './ort-client';
 import { encoderSize, rankCandidates, toEncoderSpace, type ClickPoint } from '../editor/refine-tools';
 
-export type SamCandidates = { masks: Float32Array[]; order: number[]; width: number; height: number; decodeMs: number };
+/** `mask(k)` returns candidate k as probabilities 0..1 at base resolution (computed on first use). */
+export type SamCandidates = { mask(k: number): Float32Array; count: number; order: number[]; width: number; height: number; decodeMs: number };
 
 export class SamEngine {
   private client?: OrtWorkerClient;
@@ -31,8 +32,8 @@ export class SamEngine {
         const encoderVariant = variantById(`mobilesam-encoder-${provider}`);
         const decoderVariant = variantById('mobilesam-decoder-wasm');
         const request = (file: string, bytes: number) => ({ url: new URL(`${MODEL_BASE}${file}`, document.baseURI).href, expectedBytes: manifest?.files[file]?.bytes ?? bytes, provider, wasmPaths: wasmAssetBase(), threads: crossOriginIsolated ? Math.min(4, caps.cores) : 1 });
-        const encoder = await this.client.load(request(encoderVariant.file, encoderVariant.bytes), (l, t) => onStatus?.('Downloading MobileSAM encoder', l, t), 5 * 60_000);
-        const decoder = await this.client.load(request(decoderVariant.file, decoderVariant.bytes), (l, t) => onStatus?.('Downloading MobileSAM decoder', l, t), 5 * 60_000);
+        const encoder = await this.client.load(request(encoderVariant.file, encoderVariant.bytes), (l, t) => onStatus?.('Loading MobileSAM encoder', l, t), 5 * 60_000);
+        const decoder = await this.client.load(request(decoderVariant.file, decoderVariant.bytes), (l, t) => onStatus?.('Loading MobileSAM decoder', l, t), 5 * 60_000);
         this.sessions = { encoder, decoder, provider };
         return this.sessions;
       } catch (error) {
@@ -44,9 +45,10 @@ export class SamEngine {
   }
 
   /** Encodes the photo layer once; repeated clicks on the same layer reuse the embedding. */
-  async encode(key: string, image: HTMLImageElement, width: number, height: number, onStatus?: (label: string, loaded?: number, total?: number) => void) {
+  async encode(key: string, getImage: () => Promise<HTMLImageElement>, width: number, height: number, onStatus?: (label: string, loaded?: number, total?: number) => void) {
     if (this.embedding?.key === key) return 0;
     const sessions = await this.load(onStatus);
+    const image = await getImage();
     onStatus?.('Analysing photo for Magic Click');
     const size = encoderSize(width, height);
     const canvas = document.createElement('canvas');
@@ -84,12 +86,16 @@ export class SamEngine {
     const count = masks.dims[1]!;
     const plane = width * height;
     const logits = new Float32Array(masks.data);
-    const out: Float32Array[] = [];
-    for (let k = 0; k < count; k++) {
-      const prob = new Float32Array(plane);
-      for (let i = 0; i < plane; i++) prob[i] = 1 / (1 + Math.exp(-logits[k * plane + i]!));
-      out.push(prob);
-    }
-    return { masks: out, order: rankCandidates(iou), width, height, decodeMs: run.ms };
+    const cache = new Map<number, Float32Array>();
+    const mask = (k: number) => {
+      let prob = cache.get(k);
+      if (!prob) {
+        prob = new Float32Array(plane);
+        for (let i = 0; i < plane; i++) prob[i] = 1 / (1 + Math.exp(-logits[k * plane + i]!));
+        cache.set(k, prob);
+      }
+      return prob;
+    };
+    return { mask, count, order: rankCandidates(iou), width, height, decodeMs: run.ms };
   }
 }
