@@ -1,0 +1,17 @@
+{
+  "name": "beams-bg-eval",
+  "private": true,
+  "type": "module",
+  "description": "Isolated background-removal model evaluation. Not part of the app build.",
+  "scripts": {
+    "fetch": "node fetch-models.mjs",
+    "data": "node collect-data.mjs",
+    "native": "node run-native.mjs",
+    "browser": "vite --config vite.config.mjs",
+    "sheets": "node make-sheets.mjs"
+  },
+  "dependencies": {
+    "onnxruntime-node": "1.30.0",
+    "sharp": "^0.34.0"
+  }
+}
