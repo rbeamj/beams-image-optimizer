@@ -4,11 +4,10 @@
 
 Beams Image Optimizer is a free, open-source, browser-local product-image application with two experiences built on one reusable engine: **Quick Optimize** for fast batch exports and **Photo Studio** for careful single-image editing.
 
-## v0.1.1 local update
+## Local update (unreleased)
 
-- Adds the local Photo Studio editor foundation, with live adjustments, before/after comparison, undo, reset, rotation, and flips.
-- Unifies edited-image export with the existing format, quality, and maximum-size recipe.
-- Uses compact Adjust and Export panels with a stable canvas height and always-visible image import control.
+- Photo Studio becomes a six-step product-photo workflow: AI cutout (BiRefNet with hardware-adaptive Auto/Fast/Quality), Magic Click refinement (MobileSAM), object cleanup (MI-GAN), Real-ESRGAN enhance, a scene editor and 2K export.
+- All AI runs locally and on demand; no model weights are bundled.
 
 ## Privacy
 
@@ -27,41 +26,48 @@ Image decoding, resizing, and encoding happen in your browser using standard bro
 - Before/after previews, byte statistics, and the actual recipe retained for each processed image
 - Light and dark presentation
 
-## Photo Studio foundation
+## Photo Studio
 
-The in-progress Photo Studio is a browser-local, non-destructive single-image editor over the optimizer. Current Tranche 1 tools include freeform and ratio crop, straighten and flip, exposure, brightness, contrast, saturation, temperature, sharpness, grayscale and sepia filters, zoom, undo/redo, reset controls, and combined export. Images are kept in the browser and the original input file is never modified.
+Photo Studio is a browser-local, non-destructive product-photo editor. Work through the numbered steps in order, or open any step directly:
+
+1. **Cutout** – AI background removal (opt-in).
+2. **Refine** – Magic Click fixes the cutout: click to bring back or remove an area, Shift+click to exclude a spot, *Try another shape* to cycle MobileSAM's alternatives, then Accept or Reject.
+3. **Cleanup** – paint over a blemish, label or object and press Remove; MI-GAN fills it. Only painted pixels change. Accept or Reject, and repeat as often as needed.
+4. **Enhance** – optional Real-ESRGAN upscale of small photos to 1024 or 2048 px, with a before/after against a standard resize.
+5. **Scene** – transparent, solid, gradient or uploaded backgrounds; marketplace/social/banner/catalog presets; frame ratio, padding, position, subject size and rotation; ground-contact or drop shadows.
+6. **Export** – the shared format/quality recipes, capped at 2048 px for Studio exports. The export is rendered from the same scene as the preview.
+
+Light, Color, Transform and Crop adjustments work at any point. Every step is undoable, before/after comparison is available throughout, and the original file is never modified. The subject is kept as layers (photo pixels plus a cutout matte), so you can redo the cutout, refine it, clean up the photo or enhance it without losing your scene settings. AI previews are never written into history or exports until accepted.
+
+### Local AI models
+
+All inference runs in the browser with ONNX Runtime Web in per-model Web Workers. Nothing is uploaded, nothing runs automatically, and each model is downloaded only when its feature is first used, then kept in the browser's Cache Storage. Workers are terminated to free memory when a model fails or is replaced.
+
+| Feature | Models | Runtime |
+| --- | --- | --- |
+| Cutout | BiRefNet lite 1024 (Quality), BiRefNet lite 512 (Fast), U²-Netp (last resort) | WebGPU (fp16 when `shader-f16` works, otherwise fp32), WASM fallback |
+| Refine | MobileSAM encoder + multi-mask decoder | WebGPU, WASM fallback |
+| Cleanup | MI-GAN (512 px context window) | WebGPU, WASM fallback |
+| Enhance | Real-ESRGAN `realesr-general-x4v3` | WASM |
+
+**Auto / Fast / Quality.** Auto probes the device (WebGPU adapter, `shader-f16`, buffer limits, device memory, mobile) and remembers per-device outcomes and timings. It prefers Quality 1024, falls back to Fast 512 and then U²-Netp after an out-of-memory error, timeout or unsupported operator, and skips configurations that failed on this device in the last 14 days. GPUs without `shader-f16` (for example NVIDIA Pascal) use a locally rewritten fp32 BiRefNet 1024 graph that is numerically identical to the original. Quality 1024 is not offered on WASM because it exceeds the 4 GB WebAssembly heap.
+
+Install models for local development (weights are never committed and the build strips them):
+
+```sh
+npm run fetch:models -- --all      # or --fast, --quality, --sam, --migan, --enhance
+npm run fetch:models -- --all --from <dir>   # copy from a local folder instead of downloading
+```
+
+`--quality` downloads the fp16 BiRefNet 1024 model and builds the fp32 WebGPU variant locally (needs `uv` or Python 3 with `onnx` and `numpy`). To deliberately host specific weights, list them at build time, e.g. `BEAMS_INCLUDE_MODELS=u2netp.onnx npm run build`; only listed files are copied and the model manifest is filtered to match.
+
+**Licensing.** Model code and weights are MIT/Apache-2.0, but the training datasets of every model carry research-only, non-commercial or unstated terms. No weights ship with the app; see [docs/model-licensing.md](docs/model-licensing.md) before any commercial deployment. Measured performance is in [docs/photo-studio-performance.md](docs/photo-studio-performance.md); model comparisons are in `experiments/bg-eval/REPORT.md` and `docs/background-removal-evaluation.md`.
 
 Quick Optimize and Photo Studio intentionally share the same import queue, output recipes, and browser-only image engine. They are separate interfaces, not separate products or processing systems.
 
 ## Browser support and limitations
 
-Use a current desktop or mobile browser with Canvas, Blob, and image-decoding support. WebP output and EXIF orientation behavior depend on the browser. Inputs are limited to JPEG, PNG, and WebP files up to 50 MB. A canvas encoder cannot be forcibly stopped mid-encode, so cancellation takes effect at the next safe processing boundary. This is an alpha editor. AI features are opt-in, run in the browser, and are only added after their model weights, commercial-use terms, redistribution terms, performance, and privacy tradeoffs are reviewed.
-
-### Optional AI Enhance (Real-ESRGAN)
-
-Photo Studio's Enhance panel can upscale to a 1024px or 2048px longest edge with `realesr-general-x4v3` through ONNX Runtime Web (WASM, no GPU required). It never runs automatically and stays off until acknowledged. Weights are not committed:
-
-```sh
-npm run fetch:model   # downloads realesr-general-x4v3.onnx into public/models/
-npm run bench:enhance # writes docs/realesrgan-benchmark.md
-```
-
-See `docs/realesrgan-audit.md` for the license review and residual training-data risk.
-
-### Backgrounds and optional AI background removal
-
-The Background panel builds marketplace scenes without touching product pixels: transparent, solid, studio gradients, custom gradients, or an uploaded photo (fill or fit); square, 4:5, 4:3, 16:9, or product-ratio frames with padding and positioning; and adjustable ground-contact or drop shadows. Scene changes are undoable and export at the product's native resolution.
-
-Opt-in AI background removal uses U²-Netp (Apache-2.0, 4.6 MB) on the browser CPU (WASM) or WebGPU, with edge cleanup and optional edge refinement. It never runs automatically and the weights are not committed:
-
-```sh
-npm run fetch:bg-model # downloads u2netp.onnx into public/models/
-npm run bench:bg       # native CPU timings
-```
-
-See `docs/background-removal-evaluation.md` for the model and license decisions and benchmark results.
-
-`npm run build` strips fetched `.onnx` files and local benchmark images from `dist/`. To host specific weights deliberately, list them: `BEAMS_INCLUDE_MODELS=u2netp.onnx,realesr-general-x4v3.onnx npm run build`.
+Use a current desktop or mobile browser with Canvas, Blob, and image-decoding support. WebGPU (Chrome/Edge 113+, Safari 18+) makes the AI tools much faster but is optional. WebP output and EXIF orientation behavior depend on the browser. Inputs are limited to JPEG, PNG, and WebP files up to 50 MB. A canvas encoder cannot be forcibly stopped mid-encode, so cancellation takes effect at the next safe processing boundary. This is alpha software.
 
 ## Develop locally
 
