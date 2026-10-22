@@ -1,4 +1,4 @@
-import { readdirSync, rmSync } from 'node:fs';
+import { readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 
@@ -35,6 +35,15 @@ function stripLocalAssets(): Plugin {
       let entries: string[] = [];
       try { entries = readdirSync(models); } catch { return; }
       for (const name of entries) if (name.endsWith('.onnx') && !allowed.has(name)) rmSync(join(models, name), { force: true });
+      rmSync(join(models, '.work'), { recursive: true, force: true });
+      // The manifest must only advertise models that actually ship, or the editor would try to load stripped files.
+      const manifestPath = join(models, 'manifest.json');
+      try {
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { files: Record<string, unknown> };
+        manifest.files = Object.fromEntries(Object.entries(manifest.files).filter(([name]) => allowed.has(name)));
+        if (Object.keys(manifest.files).length) writeFileSync(manifestPath, JSON.stringify(manifest));
+        else rmSync(manifestPath, { force: true });
+      } catch { /* no manifest */ }
     },
   };
 }

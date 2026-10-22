@@ -152,3 +152,5 @@ vite.config.ts.timestamp-*
 public/models/*.onnx
 public/ort/
 public/bench/
+public/models/manifest.json
+public/models/.work/
