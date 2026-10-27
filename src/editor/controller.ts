@@ -13,6 +13,7 @@ import { RemovalEngine } from '../ai/removal-engine';
 import { loadMode, saveMode } from '../ai/device-profile';
 import type { RemovalMode } from '../ai/planner';
 import { canvasToUrl, compositeUrl, loadImage, matteFromUrl, matteToUrl, pixels, type SubjectLayers } from './subject';
+import type { StoredProjectData } from './projects';
 
 type Snapshot = { canvas: unknown; adjustments: Adjustments; crop: CropRect; original: { width: number; height: number }; comparisonUrl: string; scene: SceneSettings; backdrop: Backdrop; layers: SubjectLayers };
 
@@ -459,6 +460,103 @@ export function initEditor() {
     updateClearEnhance();
   };
 
+  /** Snapshot of the open photo as a saveable project record; blobs are fetched copies, not URLs. */
+  const captureProject = async (): Promise<StoredProjectData | undefined> => {
+    if (!image) return undefined;
+    const grab = (url: string) => fetch(url).then(response => response.blob());
+    return {
+      fileName: originalFile?.name ?? title.textContent ?? 'photo',
+      fileType: originalFile?.type ?? 'image/png',
+      file: originalFile ?? new Blob(),
+      base: await grab(layers.baseUrl),
+      matte: layers.matteUrl ? await grab(layers.matteUrl) : null,
+      comparison: await grab(comparisonUrl),
+      backdropImage: backdrop.kind === 'image' ? await grab(backdrop.url) : null,
+      width: layers.width,
+      height: layers.height,
+      pristine: { ...pristine },
+      removal: layers.removal ? { ...layers.removal } : null,
+      enhancedTo: layers.enhancedTo ?? null,
+      refined: layers.refined ?? 0,
+      cleaned: layers.cleaned ?? 0,
+      adjustments: { ...adjustments },
+      crop: { ...crop },
+      scene: structuredClone(scene),
+      backdrop: structuredClone(backdrop),
+    };
+  };
+
+  /** Reopens a saved project: rebuilds the layered subject and the look exactly as they were saved. */
+  const applyProject = async (data: StoredProjectData): Promise<boolean> => {
+    if (!(data.width > 0) || !(data.height > 0)) return false;
+    const sequence = ++loadSequence;
+    for (const url of generatedUrls) URL.revokeObjectURL(url);
+    generatedUrls.length = 0;
+    backdropImages.clear();
+    originalFile = new File([data.file], data.fileName, { type: data.fileType });
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = URL.createObjectURL(data.file);
+    previewOverlay = undefined;
+    comparisonImage = undefined;
+    aiTools.reset();
+    loadingPhoto = true;
+    studio.clear();
+    image = undefined;
+    scene = clampScene(structuredClone(data.scene));
+    backdrop = structuredClone(data.backdrop);
+    sceneObjects = [];
+    frameBox = undefined;
+    Object.assign(adjustments, defaultAdjustments(), data.adjustments);
+    crop = { ...data.crop };
+    const next: SubjectLayers = {
+      baseUrl: registerUrl(URL.createObjectURL(data.base)),
+      width: data.width,
+      height: data.height,
+      matteUrl: data.matte ? registerUrl(URL.createObjectURL(data.matte)) : null,
+      removal: data.removal ?? undefined,
+      enhancedTo: data.enhancedTo ?? undefined,
+      refined: data.refined,
+      cleaned: data.cleaned,
+    };
+    comparisonUrl = registerUrl(URL.createObjectURL(data.comparison));
+    if (backdrop.kind === 'image') {
+      if (!data.backdropImage) return false;
+      const url = registerUrl(URL.createObjectURL(data.backdropImage));
+      const el = new Image();
+      el.src = url;
+      try { await el.decode(); } catch { /* fall through to the white backdrop below */ }
+      if (sequence !== loadSequence) return false;
+      if (el.naturalWidth) {
+        backdropImages.set(url, el);
+        backdrop = { kind: 'image', url, fit: backdrop.fit };
+      } else {
+        backdrop = { kind: 'color', color: '#ffffff' };
+      }
+    }
+    const composite = await compositeUrl(next, registerUrl);
+    const subject = await FabricImage.fromURL(composite);
+    if (sequence !== loadSequence) return false;
+    loadingPhoto = false;
+    layers = next;
+    image = subject;
+    original = { width: subject.width!, height: subject.height! };
+    pristine = { ...data.pristine };
+    enhanceCache.clear();
+    measureOpaqueBounds();
+    subject.set({ selectable: false, evented: false, originX: 'center', originY: 'center', cropX: crop.x, cropY: crop.y, width: crop.width, height: crop.height });
+    studio.add(subject);
+    layoutScene();
+    history.reset();
+    title.textContent = data.fileName;
+    empty.hidden = true;
+    element.hidden = false;
+    sync();
+    applyAdjustments();
+    remember();
+    updateClearEnhance();
+    return true;
+  };
+
   resize();
   new ResizeObserver(resize).observe(stage);
   (Object.entries(ids) as [keyof typeof ids, string][]).forEach(([key, id]) => {
@@ -780,6 +878,9 @@ export function initEditor() {
       const blob = await new Promise<Blob>((resolve, reject) => composed.canvas.toBlob(b => b ? resolve(b) : reject(new Error('Your browser could not encode the export.')), 'image/png'));
       return new File([blob], `${title.textContent || 'image'}-edited.png`, { type: 'image/png' });
     },
+    /** Save the open photo as a project record, or reopen a previously saved one. */
+    captureProject,
+    applyProject,
     dispose() { if (objectUrl) URL.revokeObjectURL(objectUrl); for (const url of generatedUrls) URL.revokeObjectURL(url); generatedUrls.length = 0; aiTools.release(); removalEngine.release(); studio.dispose(); }
   };
   if (import.meta.env.DEV) Object.assign((window as unknown as { __studio: object }).__studio, { exportFile: api.exportFile, frame: () => frameBox && { ...frameBox } });

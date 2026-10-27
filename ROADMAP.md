@@ -50,11 +50,20 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
 - `npm run typecheck` and `npm run smoke` (a 23-check browser regression suite over the DevTools protocol, no
   extra dependencies) guard the controller surface, the opt-in persistence, and the fixes above
 
+### Projects (v0.2.0)
+
+- Save the open Studio photo as a project in this browser (IndexedDB): subject layers (base pixels + cutout
+  matte), the before/after reference, the original file, adjustments, crop, scene and backdrop
+- Reopen from the Export panel after any reload; the reopened export is byte-identical to the pre-save export
+  (verified both with and without an AI cutout)
+- Every record is validated on read, so a corrupt or version-skewed row can never reach the editor
+- Undo history is not persisted, and a template library beyond "My Studio setup" remains future work
+
 ## Next
 
 Ordered by expected value, not committed for any release:
 
-- Project save/load in the browser, plus reusable product templates
+- A reusable template library beyond "My Studio setup" — named scene/backdrop/light looks applicable to any photo
 - Additional marketplace export presets where the framing rules are documented
 - Save/cancel the batch queue across reloads, and per-row retry for failed photos
 - Run the smoke suite in CI (needs a Chrome install in the Pages workflow)

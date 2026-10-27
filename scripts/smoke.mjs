@@ -176,6 +176,30 @@ const HELPERS = `
       sel.dispatchEvent(new Event('change', { bubbles: true }));
       return { gateVisible: !document.querySelector('#batch-ack').hidden, label: document.querySelector('#process').textContent };
     },
+    saveProject: (name) => {
+      document.querySelector('#project-name').value = name;
+      document.querySelector('#save-project').click();
+      return window.__s.waitFor(() => {
+        const t = document.querySelector('#status').textContent || '';
+        return /Saved|could not be saved/.test(t) ? t : null;
+      }, 20000);
+    },
+    projectRows: () => [...document.querySelectorAll('#project-list li')].map(li => ({
+      name: li.querySelector('strong')?.textContent ?? '',
+      hasOpen: !!li.querySelector('[data-open-project]'),
+      hasDelete: !!li.querySelector('[data-delete-project]'),
+    })),
+    openProject: async (index) => {
+      document.querySelectorAll('#project-list [data-open-project]')[index]?.click();
+      await window.__s.waitFor(() => document.querySelector('#editor-file').textContent === 'smoke-photo.png'
+        && typeof window.__studio.frame() === 'object'
+        && document.querySelector('#edit-exposure-value').textContent === '+40', 25000);
+      return {
+        title: document.querySelector('#editor-file').textContent,
+        exposure: document.querySelector('#edit-exposure-value').textContent,
+        frame: !!window.__studio.frame(),
+      };
+    },
   };
   'smoke-helpers-ready'
 `;
@@ -280,6 +304,19 @@ async function main() {
     const exposed = await cdp.evaluate(`window.__s.exportBytes()`);
     check('adjust: exposure changes the display', displayBefore !== displayAfter, `${displayBefore} vs ${displayAfter}`);
     check('adjust: exposure changes the export', !bytesEqual(withCompare?.bytes, exposed?.bytes) && (exposed?.len ?? 0) > 100, `${withCompare?.len} vs ${exposed?.len} bytes`);
+
+    // 10 — projects: save, survive a reload, reopen, and reproduce the export byte-for-byte
+    const savedStatus = await cdp.evaluate(`window.__s.saveProject('smoke-project')`);
+    check('project: saved', /Saved/.test(savedStatus ?? ''), savedStatus);
+    const rowsAfterSave = await cdp.evaluate(`window.__s.projectRows()`);
+    check('project: listed with open/delete', rowsAfterSave.length === 1 && rowsAfterSave[0].name === 'smoke-project' && rowsAfterSave[0].hasOpen && rowsAfterSave[0].hasDelete, JSON.stringify(rowsAfterSave));
+    await prep();
+    const rowsAfterReload = await cdp.evaluate(`window.__s.projectRows()`);
+    check('project: survives a reload', rowsAfterReload.length === 1 && rowsAfterReload[0].name === 'smoke-project', JSON.stringify(rowsAfterReload));
+    const reopenedState = await cdp.evaluate(`window.__s.openProject(0)`);
+    check('project: reopen restores photo, look and scene', reopenedState.title === 'smoke-photo.png' && !!reopenedState.frame && reopenedState.exposure === '+40', JSON.stringify(reopenedState));
+    const reopened = await cdp.evaluate(`window.__s.exportBytes()`);
+    check('project: export byte-identical after reopen', bytesEqual(exposed?.bytes, reopened?.bytes), `${exposed?.len} vs ${reopened?.len} bytes`);
 
     // 10 — console
     check('console: no errors across the whole run', cdp.consoleErrors.length === 0, cdp.consoleErrors.slice(0, 3).join(' | '));

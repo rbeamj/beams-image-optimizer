@@ -10,6 +10,7 @@ Beams Image Optimizer is a free, open-source, browser-local product-image applic
 - Single-photo Studio exports and batch exports now render through the same headless compositor at native resolution; measured parity is a mean difference of 0.216/255 (resampling only).
 - Fixed three Studio bugs found while verifying that: the before/after comparison overlay could leak the original photo into exports; a scene preset clicked while a photo was still decoding was silently lost; and small photos exported as empty white frames.
 - Added `npm run typecheck` and `npm run smoke`, a 23-check browser regression suite (no extra dependencies) guarding the opt-in persistence, export purity, and the fixes above.
+- Photo Studio **projects**: save the open photo with its cutout, edits, light settings and scene into this browser (IndexedDB), and reopen it later — even after a reload — with the export reproducing byte-for-byte.
 
 ## v0.1.2
 
@@ -32,6 +33,7 @@ Image decoding, resizing, and encoding happen in your browser using standard bro
 - Batch queue, cancellation at safe processing boundaries, individual downloads, and download-all
 - Optional batch Studio preset: cut every photo out and place it on a backdrop — Marketplace white 1:1, Social 4:5, Banner 16:9, Catalog 4:3, Transparent PNG, or the setup of the photo currently open in Photo Studio — then export with the shared recipes
 - Before/after previews, byte statistics, and the actual recipe retained for each processed image
+- Saved projects in Photo Studio: reopen a photo with its cutout, edits and scene after any reload (browser-local IndexedDB, nothing leaves the browser)
 - Light and dark presentation
 
 ## Photo Studio
@@ -46,6 +48,8 @@ Photo Studio is a browser-local, non-destructive product-photo editor. Work thro
 6. **Export** – the shared format/quality recipes, capped at 2048 px for Studio exports. Exports render headlessly at native resolution from the same scene as the preview.
 
 The same scene, backdrop, shadow and light settings can be captured as **My Studio setup** and applied to the whole Quick Optimize queue.
+
+The **Projects** section of the Export panel saves any photo with its layers and look into this browser and reopens it exactly as it was saved — the reopened export is byte-identical.
 
 Light, Color, Transform and Crop adjustments work at any point. Every step is undoable, before/after comparison is available throughout, and the original file is never modified. The subject is kept as layers (photo pixels plus a cutout matte), so you can redo the cutout, refine it, clean up the photo or enhance it without losing your scene settings. AI previews are never written into history or exports until accepted.
 
