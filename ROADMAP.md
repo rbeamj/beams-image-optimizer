@@ -27,6 +27,9 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
   6. Export — shared recipes, rendered from the same scene as the preview
 - On-demand model downloads from each publisher, checksum-verified and cached; no weights bundled or committed
 - The original input is preserved and every step is undoable
+- Hardware-adaptive precision: fp16 WebGPU when the GPU exposes `shader-f16`, an fp32 graph patch on older GPUs,
+  CPU/WASM as the last resort — verified on both a Pascal GPU (fp32 only) and Intel gen-12lp (fp16, ~1.9× faster
+  than fp32)
 
 ## Next
 
@@ -35,8 +38,6 @@ Ordered by expected value, not committed for any release:
 - Batch application of Studio presets and templates across the Quick Optimize queue
 - A persisted AI opt-in so enabling the tools is one click instead of once per page load
 - Project save/load in the browser, plus reusable product templates
-- Verify the fp16 WebGPU paths on `shader-f16` hardware and record the numbers in
-  [photo-studio-performance.md](docs/photo-studio-performance.md)
 - A `typecheck` script and an automated browser smoke test for the Studio controller
 - Additional marketplace export presets where the framing rules are documented
 

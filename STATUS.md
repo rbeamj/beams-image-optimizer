@@ -3,20 +3,20 @@
 Durable record of where the project actually is, so a new session can resume without chat history.
 Update this file at the end of any working session; keep it factual and dated.
 
-**Last verified: 2026-10-27** (working tree clean before this file was added).
+**Last verified: 2026-10-27** (working tree clean; fp16 WebGPU paths exercised on real `shader-f16` hardware).
 
 ## Version and remotes
 
 | Item | Value |
 | --- | --- |
 | Version | `0.1.2` (`package.json`) |
-| Local `main` | `80b58b0` — *Expose canvas object state in the dev-only studio hook* (**not pushed**) |
-| GitHub `main` | `22ca645` — *Merge photo studio AI workflow v0.1.2* |
+| Local `main` | `e0eb082` — *Refresh the roadmap and Tranche 1 docs to match v0.1.2* |
+| GitHub `main` | `e0eb082` (in sync) |
 | Other branches | `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged, safe to delete |
-| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — Pages run #3, success, serves `index-BgfvkFyE.js`, byte-identical to a fresh local `npm run build` |
+| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — Pages run #4, success, serves `index-BgfvkFyE.js`, byte-identical to a fresh local `npm run build` |
 | Open issues / PRs | none |
 
-The single unpushed commit is a dev-only QA hook (`window.__studio.objects()/refilter()`); it does not affect the shipped build.
+The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `?ai-fail=`) do not affect the shipped build.
 
 ## Verified health (2026-10-27)
 
@@ -26,6 +26,7 @@ The single unpushed commit is a dev-only QA hook (`window.__studio.objects()/ref
 | `npm run build` | passes; `dist/` ≈ 373 kB JS + 195 kB ORT worker, gzip 117 kB + 23 kB |
 | `npm run dev` | boots in ~0.2 s; app loads with **no console errors** |
 | Studio UI | all 10 panels present: Cutout, Refine, Cleanup, Enhance, Scene, Light, Color, Transform, Crop, Export |
+| fp16 WebGPU | **verified** 2026-10-27 on Intel UHD 770 (`gen-12lp`, `shader-f16`); Quality 1024 fp16 7.7 s warm, ~1.9× faster than fp32, matte matches fp32 (mean Δ 0.014/255) |
 
 ## What is actually built
 
@@ -48,7 +49,9 @@ Subject stays layered (photo pixels + matte) so cutout/cleanup/enhance can be re
 
 Measured on a GTX 1080 Ti (Pascal, no `shader-f16`), 2048 MB WebGPU buffer:
 cutout warm 2.3 s (Quality 1024 fp32), cold page 6.5–10 s; Magic Click 0.29 s after the first; cleanup 0.39 s warm;
-enhance 4.0 s → 1024, 16.1 s → 2048. Details in `docs/photo-studio-performance.md`.
+enhance 4.0 s → 1024, 16.1 s → 2048.
+Also measured on Intel UHD 770 (`shader-f16`): Quality 1024 fp16 7.9 s total / 7.7 s model warm, Fast 512 fp16 4.0 s /
+3.6 s, Magic Click 0.26 s after the 5.8 s first click, cleanup 1.1 s warm. Details in `docs/photo-studio-performance.md`.
 
 ## Known gaps (Photoroom parity)
 
@@ -60,7 +63,8 @@ enhance 4.0 s → 1024, 16.1 s → 2048. Details in `docs/photo-studio-performan
 | Scene generation | Deterministic backdrops only; no generative scenes (kept out on purpose: privacy + licensing) |
 | Export formats | JPEG/PNG/WebP only; no AVIF/JXL/PDF/social-size matrices |
 | Mobile capture / API / accounts | Not in scope for the browser-local alpha |
-| fp16 WebGPU paths | Implemented and gated, but **unverified** — no `shader-f16` hardware on hand (Apple Silicon / recent NVIDIA/AMD/Intel) |
+| fp16 WebGPU paths | **Verified** on Intel UHD 770 — Auto picks Quality 1024 fp16, ~1.9× faster than fp32, output matches fp32. Apple Silicon and AMD `shader-f16` hardware remain unmeasured |
+| Integrated-GPU speed | An iGPU with fp16 is still slower than a discrete GPU: 7.7 s vs 2.1 s model-only for Quality 1024. Expect 4–8 s per cutout on integrated graphics, not sub-second |
 | WASM threading | Single-threaded on static hosting; real threads need COOP/COEP, which GitHub Pages cannot send |
 | Test coverage | All 180 tests are unit/logic tests; `src/editor/controller.ts` (57 kB, DOM + canvas) has no automated coverage — browser QA is manual |
 | Tooling | No lint/format/typecheck-only script; `tsc -b` only runs inside `build` |
@@ -85,8 +89,8 @@ All documentation was refreshed against v0.1.2 on 2026-10-27:
   status banner, and their deferred lists now say what shipped in v0.1.2 versus what is still missing.
 - `README.md` links this file from its Roadmap section.
 
-`docs/model-licensing.md`, `docs/background-removal-evaluation.md`, `docs/realesrgan-audit.md`, and
-`docs/photo-studio-performance.md` are current and were not changed.
+`docs/model-licensing.md`, `docs/background-removal-evaluation.md`, and `docs/realesrgan-audit.md` are current and were not changed.
+`docs/photo-studio-performance.md` gained a measured fp16 section (Intel UHD 770) on 2026-10-27.
 
 ## How to resume
 
@@ -102,9 +106,7 @@ Windows PowerShell: use `npm.cmd` if `npm.ps1` is blocked. Dev-only QA hook: `wi
 
 ## Suggested next steps (not started)
 
-1. Fix documentation drift (roadmap + tranche docs) so this file and the repo agree.
-2. Persist the AI opt-in per browser (one click instead of every load) — smallest parity win.
-3. Batch apply of Studio presets (cutout + scene + export) across the Quick Optimize queue — largest parity win.
-4. Project save/load (IndexedDB) with reusable product templates.
-5. Verify fp16 WebGPU on `shader-f16` hardware; record real numbers in `docs/photo-studio-performance.md`.
-6. Add `npm run typecheck` and a browser smoke test for the studio controller.
+1. Persist the AI opt-in per browser (one click instead of every load) — smallest parity win.
+2. Batch apply of Studio presets (cutout + scene + export) across the Quick Optimize queue — largest parity win.
+3. Project save/load (IndexedDB) with reusable product templates.
+4. Add `npm run typecheck` and a browser smoke test for the studio controller.

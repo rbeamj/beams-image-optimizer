@@ -1,6 +1,6 @@
 # Photo Studio AI performance
 
-Measured 2026-10-22 in the running app (`npm run dev`) in the Chromium-based Cursor browser on Windows 11, NVIDIA GTX 1080 Ti (Pascal, **no `shader-f16`**), 2048 MB WebGPU max buffer, 32 GB+ device memory, 24 cores. Test photo: `shoe-2.jpg`, 1536×1010. Models served locally from `public/models/` (so "download" times are local-disk reads). Times come from the app's own status messages; "wall" includes UI work and 250 ms polling.
+Measured 2026-10-22 in the running app (`npm run dev`) in the Chromium-based Cursor browser on Windows 11, NVIDIA GTX 1080 Ti (Pascal, **no `shader-f16`**), 2048 MB WebGPU max buffer, 32 GB+ device memory, 24 cores. Test photo: `shoe-2.jpg`, 1536×1010. Models served locally from `public/models/` (so "download" times are local-disk reads). Times come from the app's own status messages; "wall" includes UI work and 250 ms polling. Integrated-GPU fp16 numbers are in [fp16 on integrated graphics](#fp16-on-integrated-graphics-intel-uhd-770).
 
 ## In-app timings
 
@@ -41,6 +41,42 @@ Most of a new-page cutout's extra ~4 s is WebGPU session creation (shader compil
 | Cutout after reload (cached original, patch re-applied) | 6.5 s, no download |
 | BiRefNet 1024 fp16 (115 MB) | downloads with CORS and matches its checksum; not runnable on this GPU |
 
+## fp16 on integrated graphics (Intel UHD 770)
+
+Measured 2026-10-27 in the same app (`npm run dev`) driven in the installed Chrome 156 through the DevTools protocol
+(headless, throwaway profile, models served from `public/models/`). GPU: **Intel UHD Graphics 770** (`intel` /
+`gen-12lp`, **`shader-f16` yes**, 2048 MB WebGPU max buffer, 32 GB+ device memory). Test photo:
+`public/bench/worn-shoe-cc0.png`, 2178×1788 (3.6 MB). The photo is larger than the 1536×1010 baseline above, so totals
+are not directly comparable; model-only times are (the model input is a fixed square resize).
+
+| Step | Path chosen | Condition | Total | Model only |
+| --- | --- | --- | --- | --- |
+| Cutout | Quality 1024 · WebGPU **fp16** | first run (file + session compile) | 17.2 s | 10.3 s (load 0.65 s) |
+| Cutout | Quality 1024 · WebGPU **fp16** | warm (same page) | 7.9 s | 7.7 s |
+| Cutout | Fast 512 · WebGPU **fp16** | first run | 10.5 s | 4.0 s (load 0.50 s) |
+| Cutout | Fast 512 · WebGPU **fp16** | warm | 4.0 s | 3.6 s |
+| Cutout | Quality 1024 · WebGPU fp32 (fp16 forced to fail) | first run | 22.3 s | 14.9 s (load 1.5 s) |
+| Magic Click | MobileSAM · WebGPU (fp32 only) | first click (encode 3.0 s) | 5.8 s | — |
+| Magic Click | MobileSAM · WebGPU | second click | 0.26 s | decoder ~0.26 s |
+| Cleanup | MI-GAN · WebGPU (fp32 only) | first run | 3.4 s | 1.8 s |
+| Cleanup | MI-GAN · WebGPU | second run | 1.1 s | 1.0 s |
+
+Findings:
+
+- **fp16 works and is the planner's first choice.** Auto resolved to `Quality 1024 · WebGPU fp16`, and all three
+  cutout runs completed with no console errors or exceptions.
+- **fp16 is ~1.9× faster than fp32 on the same GPU**: 7.7 s vs 14.9 s model-only for Quality 1024. Both precisions
+  run here (the fp32 graph patch still applies), so this is a direct comparison.
+- **fp16 output matches fp32.** Comparing the two 1024 mattes pixel-by-pixel (downsampled to 512 wide, 215,040
+  samples): mean absolute difference **0.014/255**, max **18/255**, and only **0.13 %** of pixels differ by more than
+  2/255 — confined to anti-aliased edges. No semantic differences.
+- **Warm cost is the honest number.** The first run of each model pays WebGPU session creation (~5–7 s on this iGPU);
+  the second photo is 7.9 s (Quality) or 4.0 s (Fast).
+- **The iGPU is still the slower device overall.** The GTX 1080 Ti needs 2.1 s model-only for fp32 Quality 1024
+  versus 7.7 s here in fp16, so on a desktop with a discrete GPU the discrete path remains the better default. The
+  integrated GPU is what makes Quality viable on machines that have no discrete GPU at all.
+- MobileSAM, MI-GAN and Real-ESRGAN ship fp32-only, so their numbers are identical with or without `shader-f16`.
+
 ## Memory
 
 - JS heap during the full workflow stayed between 25 and 82 MB (`performance.memory`).
@@ -60,6 +96,6 @@ The app uses the same graphs and pre/post-processing as the benchmark harness (I
 
 ## Not measured here
 
-- **fp16 WebGPU paths** (`shader-f16` hardware such as Apple Silicon and recent NVIDIA/AMD/Intel GPUs) could not run on this Pascal GPU. The planner gates them on a successful `shader-f16` feature check, buffer limits and device memory, and falls back automatically on failure; the Backgroundless reference reports near-instant results on an M2.
+- **fp16 on Pascal** (the GPU above) remains impossible: no `shader-f16`, so the planner correctly stays on the fp32 graph patch. fp16 is now measured on Intel gen-12lp (section above); Apple Silicon and AMD `shader-f16` hardware are still unmeasured. The planner gates every fp16 variant on a successful `shader-f16` feature check, buffer limits and device memory, and falls back automatically on failure.
 - **WASM-only devices**: BiRefNet 512 fp16 on WASM measured 2.5 s steady in the benchmark harness (2.0 s fp32); MobileSAM encoder ~1.5 s; MI-GAN ~0.8 s.
-- Real Chrome/Edge builds and mobile devices.
+- Mobile devices and Safari/Firefox WebGPU implementations.
