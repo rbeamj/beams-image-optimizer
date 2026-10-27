@@ -9,6 +9,8 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "typecheck": "tsc -b",
+    "smoke": "node scripts/smoke.mjs",
     "fetch:model": "node scripts/fetch-realesrgan-model.mjs",
     "fetch:bg-model": "node scripts/fetch-bg-models.mjs",
     "fetch:models": "node scripts/fetch-models.mjs",

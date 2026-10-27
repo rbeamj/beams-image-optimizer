@@ -7,8 +7,9 @@ Beams Image Optimizer is a free, open-source, browser-local product-image applic
 ## v0.2.0
 
 - Quick Optimize can apply a Studio preset across the whole queue: AI cutout, then frame, backdrop and shadow composition, exported with the shared recipes. Built-ins mirror the Studio scene presets, plus Transparent PNG, plus **My Studio setup** captured from the photo open in Photo Studio.
-- Batch output is composed headlessly from the same scene graph as the Studio export and matches it (measured mean difference below 1/255 per channel on the test rig).
-- Fixed a Studio export bug where the before/after comparison overlay could leak into exported files.
+- Single-photo Studio exports and batch exports now render through the same headless compositor at native resolution; measured parity is a mean difference of 0.216/255 (resampling only).
+- Fixed three Studio bugs found while verifying that: the before/after comparison overlay could leak the original photo into exports; a scene preset clicked while a photo was still decoding was silently lost; and small photos exported as empty white frames.
+- Added `npm run typecheck` and `npm run smoke`, a 23-check browser regression suite (no extra dependencies) guarding the opt-in persistence, export purity, and the fixes above.
 
 ## v0.1.2
 
@@ -42,7 +43,7 @@ Photo Studio is a browser-local, non-destructive product-photo editor. Work thro
 3. **Cleanup** – paint over a blemish, label or object and press Remove; MI-GAN fills it. Only painted pixels change. Accept or Reject, and repeat as often as needed.
 4. **Enhance** – optional Real-ESRGAN upscale of small photos to 1024 or 2048 px, with a before/after against a standard resize.
 5. **Scene** – transparent, solid, gradient or uploaded backgrounds; marketplace/social/banner/catalog presets; frame ratio, padding, position, subject size and rotation; ground-contact or drop shadows.
-6. **Export** – the shared format/quality recipes, capped at 2048 px for Studio exports. The export is rendered from the same scene as the preview.
+6. **Export** – the shared format/quality recipes, capped at 2048 px for Studio exports. Exports render headlessly at native resolution from the same scene as the preview.
 
 The same scene, backdrop, shadow and light settings can be captured as **My Studio setup** and applied to the whole Quick Optimize queue.
 
@@ -95,6 +96,16 @@ On Windows PowerShell systems that block `npm.ps1`, use `npm.cmd run dev` instea
 npm test
 npm run build
 ```
+
+For a deeper check, start the dev server and run the browser smoke suite against it (needs a local Chrome;
+`CHROME_PATH` overrides the default Windows location):
+
+```sh
+npm run dev        # in one terminal
+npm run smoke      # in another: 23 browser checks in ~6 s
+```
+
+`npm run typecheck` runs the same `tsc -b` check as the build, without bundling.
 
 The production-ready static files are written to `dist/`. The Vite configuration uses relative asset paths, making the build suitable for GitHub Pages.
 

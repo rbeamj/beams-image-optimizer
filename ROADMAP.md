@@ -30,6 +30,8 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
 - Hardware-adaptive precision: fp16 WebGPU when the GPU exposes `shader-f16`, an fp32 graph patch on older GPUs,
   CPU/WASM as the last resort — verified on both a Pascal GPU (fp32 only) and Intel gen-12lp (fp16, ~1.9× faster
   than fp32)
+- The AI opt-in persists per browser (localStorage ack keys), so enabling the tools is one click per browser, not
+  per page load — verified by a reload test and guarded by the `npm run smoke` regression suite
 
 ### Batch Studio presets (v0.2.0)
 
@@ -37,21 +39,25 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
   then the shared export recipes
 - Built-ins mirror the Studio scene presets plus Transparent PNG; **My Studio setup** captures the open photo's
   frame, backdrop, shadow, light settings and cutout choice
-- Batch output is composed headlessly from the same scene graph and filter chain as the Studio export; measured
-  parity on the test rig is a mean difference of 0.96/255 per channel (resampling noise only)
+- Single-photo Studio exports render through the same headless compositor as the batch, at native resolution;
+  measured parity is a mean difference of 0.216/255 with 0% of pixels over 2/255 (resampling only)
 - The AI notice and opt-in gate are shared with the Studio, and one engine instance keeps a single set of warm
   model sessions for both
-- Fixed with it: a Studio export bug where the before/after comparison overlay could be duplicated on the canvas
-  and leak the original photo into exported files
+- Fixed alongside: three Studio bugs found while verifying the above — the before/after comparison overlay could
+  be duplicated on the canvas and leak the original photo into exports; a scene preset clicked while a photo was
+  still decoding was silently lost; and small photos (stage scale > 1) exported as empty white frames because the
+  old export cropped the display canvas
+- `npm run typecheck` and `npm run smoke` (a 23-check browser regression suite over the DevTools protocol, no
+  extra dependencies) guard the controller surface, the opt-in persistence, and the fixes above
 
 ## Next
 
 Ordered by expected value, not committed for any release:
 
-- A persisted AI opt-in so enabling the tools is one click instead of once per page load
 - Project save/load in the browser, plus reusable product templates
-- A `typecheck` script and an automated browser smoke test for the Studio controller
 - Additional marketplace export presets where the framing rules are documented
+- Save/cancel the batch queue across reloads, and per-row retry for failed photos
+- Run the smoke suite in CI (needs a Chrome install in the Pages workflow)
 
 ## Longer term
 

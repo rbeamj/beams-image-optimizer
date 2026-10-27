@@ -3,7 +3,7 @@
 Durable record of where the project actually is, so a new session can resume without chat history.
 Update this file at the end of any working session; keep it factual and dated.
 
-**Last verified: 2026-10-27** (v0.2.0 shipped: batch Studio presets; Studio export-overlay leak fixed; dev + production QA green).
+**Last verified: 2026-10-27** (v0.2.0 shipped: batch Studio presets, one shared export renderer, three Studio bugs fixed; `npm run typecheck` + `npm run smoke` added; dev + production QA green).
 
 ## Version and remotes
 
@@ -27,7 +27,8 @@ The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__bat
 | `npm run dev` | boots clean; app loads with **no console errors** |
 | Studio UI | all 10 panels present: Cutout, Refine, Cleanup, Enhance, Scene, Light, Color, Transform, Crop, Export |
 | fp16 WebGPU | **verified** 2026-10-27 on Intel UHD 770 (`gen-12lp`, `shader-f16`); Quality 1024 fp16 7.7 s warm, ~1.9× faster than fp32, matte matches fp32 (mean Δ 0.014/255) |
-| Batch Studio presets | **verified** 2026-10-27 in real Chrome over CDP (same iGPU): consent gate, 5 presets, cancel mid-batch, transparency, "My Studio setup", **0 console errors**; parity vs Studio export mean Δ 0.96/255 |
+| Batch Studio presets | **verified** 2026-10-27 in real Chrome over CDP (same iGPU): consent gate, 5 presets, cancel mid-batch, transparency, "My Studio setup", **0 console errors**; parity vs Studio export mean Δ 0.216/255, 0% of pixels over 2/255 (same renderer) |
+| `npm run smoke` | **verified** 2026-10-27: 23/23 browser checks in ~5.6 s (boot, opt-in persistence across reload, quick optimize, 10 panels, mid-decode preset race, overlay single-reference, export subject/overlay/adjustments, 0 console errors) |
 
 ## What is actually built
 
@@ -38,8 +39,9 @@ composition, exported with the shared recipes. Built-ins (Marketplace white 1:1,
 Catalog 4:3, Transparent PNG) mirror the Studio scene buttons; **My Studio setup** captures whatever frame,
 backdrop, shadow, light settings and cutout choice the open Studio photo has. The batch pipeline
 (`src/batch/`) reuses the same adaptive removal engine (one shared warm session set), the same scene math
-(`src/editor/scene.ts`), and a headless fabric compositor (`src/editor/compose.ts`) that mirrors the editor's
-scene graph, so batch output matches a single Studio export (measured mean Δ 0.96/255). Originals are never
+(`src/editor/scene.ts`), and the headless fabric compositor (`src/editor/compose.ts`) that also renders
+single-photo Studio exports since this session, so a batch export and a Studio export are the same
+renderer by construction (measured mean Δ 0.216/255, resampling only). Originals are never
 modified; savings compare against the user's input file, not the intermediate PNG.
 
 **Photo Studio** — browser-local, non-destructive, six-step workflow:
@@ -66,8 +68,8 @@ Also measured on Intel UHD 770 (`shader-f16`): Quality 1024 fp16 7.9 s total / 7
 
 | Area | State |
 | --- | --- |
-| AI opt-in friction | Re-enabled on every page load; no persisted opt-in, so it is not yet the one-click experience Photoroom has |
-| Batch studio edits / templates | **Shipped 2026-10-27 (v0.2.0)** — presets across the queue incl. "My Studio setup", headless composition parity-verified against Studio export. Per-photo editing stays single-image; crops, Magic Click and cleanup edits are not part of a captured preset |
+| AI opt-in friction | **Cleared 2026-10-27 — the earlier note here was stale**: the opt-in has always persisted per browser via localStorage (`beams-bg-removal-ack-v1`, `beams-enhance-license-ack-v1`, plus the removal-mode choice and per-device planner memory). Reload test: gates stay hidden, keys survive, batch gate stays closed. Guarded by `npm run smoke` |
+| Batch studio edits / templates | **Shipped 2026-10-27 (v0.2.0)** — presets across the queue incl. "My Studio setup", headless composition parity-verified against Studio export (mean Δ 0.216/255, 0% of pixels over 2/255). Per-photo editing stays single-image; crops, Magic Click and cleanup edits are not part of a captured preset |
 | Project save/load, layers, text, shapes, stickers | Not implemented (deliberately deferred in Tranche 1) |
 | Scene generation | Deterministic backdrops only; no generative scenes (kept out on purpose: privacy + licensing) |
 | Export formats | JPEG/PNG/WebP only; no AVIF/JXL/PDF/social-size matrices |
@@ -75,8 +77,8 @@ Also measured on Intel UHD 770 (`shader-f16`): Quality 1024 fp16 7.9 s total / 7
 | fp16 WebGPU paths | **Verified** on Intel UHD 770 — Auto picks Quality 1024 fp16, ~1.9× faster than fp32, output matches fp32. Apple Silicon and AMD `shader-f16` hardware remain unmeasured |
 | Integrated-GPU speed | An iGPU with fp16 is still slower than a discrete GPU: 7.7 s vs 2.1 s model-only for Quality 1024. Expect 4–8 s per cutout on integrated graphics, not sub-second |
 | WASM threading | Single-threaded on static hosting; real threads need COOP/COEP, which GitHub Pages cannot send |
-| Test coverage | All 191 tests are unit/logic tests; `src/editor/controller.ts` (58 kB, DOM + canvas) and the headless compositor have no automated coverage — browser QA is manual |
-| Tooling | No lint/format/typecheck-only script; `tsc -b` only runs inside `build` |
+| Test coverage | 191 unit/logic tests plus `npm run smoke` (23 browser checks over CDP) for the controller surface; the smoke is manual-trigger and needs `npm run dev` + local Chrome — it does not run in CI |
+| Tooling | `npm run typecheck` (`tsc -b`) and `npm run smoke` shipped 2026-10-27; lint/format still absent |
 
 ## Licensing posture
 
@@ -102,27 +104,50 @@ All documentation was refreshed against v0.1.2 on 2026-10-27:
 `docs/photo-studio-performance.md` gained a measured fp16 section (Intel UHD 770) on 2026-10-27 and a batch-preset
 timings + parity section the same day.
 
-## Bug fixed this session (2026-10-27)
+## Bugs fixed this session (2026-10-27)
 
-**Studio exports could contain the "before" photo.** `#compare` ships checked; the comparison overlay is managed
+All three were found by measuring instead of trusting: the parity measurement for the batch feature surfaced the
+first two, and the new smoke test surfaced the third before it ever shipped to a user.
+
+**1 — Studio exports could contain the "before" photo.** `#compare` ships checked; the comparison overlay is managed
 with remove/add pairs, but fabric's `bringObjectToFront()` silently *re-adds* a removed object, so `remember()`
 could leave the overlay referenced twice. `remove()` then only ever cleared one reference, `exportFile()` rendered
-the other into the export, and switching photos kept the previous photo's overlay. Fixes: explicit canvas
-bookkeeping (`onCanvas`/`attachToCanvas`/`detachFromCanvas` in the controller), exports hide overlays instead of
-detaching them, and `load()` resets the overlay. Verified by instrumenting `Canvas.add` over CDP (duplicate gone,
-one reference, overlay aligned) and by the parity measurement above (34.85 → 0.96 mean Δ/255).
+the other into the export, and switching photos kept the previous photo's overlay. Fix: explicit canvas
+bookkeeping (`onCanvas`/`attachToCanvas`/`detachFromCanvas`), and `load()` resets the overlay. Pinned by
+instrumenting `Canvas.add` over CDP; parity improved from 34.85 to 0.96 mean Δ/255.
+
+**2 — a scene preset clicked while a photo was still decoding was silently lost.** `load()` reset `scene`/`backdrop`
+*after* its `await FabricImage.fromURL`, so anything clicked during the decode was wiped, and interleaved
+double-loads (queue add + immediate Edit) corrupted the canvas. Fix: the scene resets moved before the await,
+`image` stays undefined until the decode lands so mid-load layouts no-op, `remember()` is suppressed while
+loading, and a load-sequence token makes the newest load win. Guarded by the smoke's "preset clicked mid-decode"
+check.
+
+**3 — small photos exported as empty white frames.** `exportFile()` cropped the *display* canvas via
+`toDataURL` with `multiplier: 1/frameBox.scale`; when the stage shows a small photo enlarged (scale > 1, multiplier
+< 1) fabric renders the frame and shadow but loses the subject entirely (measured: 283 of 5625 export pixels
+non-white, all shadow). Exports now render headlessly at native resolution through the same `composeScene` the
+batch uses — one renderer, no shared canvas, no crop/multiplier semantics. Parity between a Studio export and a
+batch export is now mean Δ 0.216/255 with 0% of pixels over 2/255, and the smoke asserts the export's centre pixel
+is the subject, not the backdrop.
+
+**Stale doc claim corrected:** the "AI opt-in re-enabled on every page load" gap was wrong — the ack keys were
+already in `localStorage`. Verified by a reload test and now guarded by `npm run smoke`.
 
 Batch QA harnesses (not part of the repo): `C:\Temp\opencode\beams-batch\qa.mjs` — full dev-server suite;
-`live.mjs` — production smoke against the deployed site; `diag*.mjs` — the parity/overlay investigations
-that found the leak.
+`live.mjs` — production smoke against the deployed site; `diag*.mjs`/`probe*.mjs`/`reload.mjs` — the
+investigations behind the three bugs above. The durable regression suite is `scripts/smoke.mjs` in the repo
+(`npm run smoke`).
 
 ## How to resume
 
 ```sh
 npm install
-npm test          # 191 tests
-npm run build     # also typechecks (tsc -b)
-npm run dev       # http://localhost:5173
+npm test            # 191 unit/logic tests
+npm run typecheck   # tsc -b (same check the build runs, without vite)
+npm run build       # production build into dist/
+npm run dev         # http://localhost:5173 — keep it running, then:
+npm run smoke       # 23 browser checks (needs the dev server + a local Chrome; CHROME_PATH overrides)
 ```
 
 Windows PowerShell: use `npm.cmd` if `npm.ps1` is blocked. Dev-only QA hooks: `window.__studio`
@@ -131,7 +156,7 @@ are available in development builds only.
 
 ## Suggested next steps (not started)
 
-1. Persist the AI opt-in per browser (one click instead of every load) — smallest remaining parity win.
-2. Project save/load (IndexedDB) with reusable product templates.
-3. Add `npm run typecheck` and a browser smoke test for the Studio controller and the headless compositor.
-4. Save/cancel the batch queue itself across reloads, and per-row retry for failed photos.
+1. Project save/load (IndexedDB) with reusable product templates — the largest remaining workflow gap.
+2. Save/cancel the batch queue itself across reloads, and per-row retry for failed photos.
+3. Run `npm run smoke` in CI (needs a Chrome install in the Pages workflow; it is manual-trigger only today).
+4. Lint/format tooling on top of the existing typecheck + smoke.

@@ -95,10 +95,12 @@ PNG, and mid-batch cancel were exercised in the same pass with zero console erro
 
 **Parity with a single Studio export**: the same photo cut out and framed in Photo Studio, exported through the
 Studio export button, and compared pixel-by-pixel with the batch output (both normalized to 1024 px) gives a mean
-per-channel difference of **0.96/255**, max 61/255, 2.4 % of pixels above 8/255 — consistent with two independent
-resampling chains rendering the same scene graph. Before the comparison-overlay export-leak fix, the same
-comparison showed 34.85/255 mean with 38.9 % of pixels above 8/255, because the "before" photo was being rendered
-over the left half of Studio exports.
+per-channel difference of **0.216/255**, max 1/255, and 0% of pixels above 2/255 — Studio exports and batch exports
+have rendered through the same headless compositor since this session, so the only difference left is independent
+PNG round-trips. For the record: before the comparison-overlay export-leak fix the same comparison showed
+34.85/255 mean (the "before" photo rendered over the left half of Studio exports), and between the two fixes it
+was 0.96/255, with the remaining gap coming from fabric's display-canvas crop path that also produced empty
+white-frame exports for small photos.
 
 ## Memory
 

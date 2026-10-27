@@ -3,6 +3,7 @@ import { CLEANUP_PANEL, mountAiTools, REFINE_PANEL } from './ai-tools';
 import { centerCrop, comparisonClip, SnapshotHistory, type CropRect } from './tools';
 import { alphaBounds, backdropPlacement, clampScene, visibleProductBox, type Box, customGradient, defaultScene, dropShadow, gradientStops, groundShadow, SCENE_PRESETS, type ScenePreset, linearCoords, placeSubject, type BackdropFit, type FrameAspect, type GradientPreset, type SceneSettings, type ShadowStyle } from './scene';
 import { adjustmentFilters } from './filters';
+import { composeScene } from './compose';
 import { defaultAdjustments, type Adjustments, type Backdrop, type StudioLook } from './looks';
 import { acknowledgeBgRemoval, BG_REMOVAL_NOTICE, hasAcknowledgedBgRemoval, type EdgeCleanup } from '../bgremove';
 import { removeAdaptive } from '../bgremove/adaptive';
@@ -48,6 +49,10 @@ export function initEditor() {
   let pristine = { width: 0, height: 0 };
   const generatedUrls: string[] = [];
   let enhancing = false;
+  /** True while a photo decode is in flight; remember() must not snapshot the half-loaded state. */
+  let loadingPhoto = false;
+  /** Incremented per load; a superseded load aborts after its await instead of interleaving. */
+  let loadSequence = 0;
   let layers: SubjectLayers = { baseUrl: '', width: 0, height: 0, matteUrl: null };
   const removalEngine = new RemovalEngine();
   /** Enhancement results keyed by source layer + target, so repeating a request reuses the earlier output. */
@@ -278,7 +283,7 @@ export function initEditor() {
     }, 'image/png');
   });
   const remember = () => {
-    if (restoring || cropFrame) return;
+    if (restoring || cropFrame || loadingPhoto) return;
     detachFromCanvas(comparisonImage);
     sceneObjects.forEach((obj) => studio.remove(obj));
     detachFromCanvas(maskOverlay);
@@ -409,6 +414,7 @@ export function initEditor() {
     updateClearEnhance();
   };
   const load = async (file: File) => {
+    const sequence = ++loadSequence;
     for (const url of generatedUrls) URL.revokeObjectURL(url);
     generatedUrls.length = 0;
     backdropImages.clear();
@@ -419,20 +425,28 @@ export function initEditor() {
     previewOverlay = undefined;
     comparisonImage = undefined;
     aiTools.reset();
+    loadingPhoto = true;
     studio.clear();
-    image = await FabricImage.fromURL(objectUrl);
-    original = { width: image.width!, height: image.height! };
+    // Reset the scene BEFORE the decode yields: anything clicked while the photo is still decoding
+    // (scene preset, backdrop, shadow) then applies to the fresh photo instead of being wiped by
+    // the continuation below. `image` stays undefined so mid-decode layouts no-op cleanly.
+    image = undefined;
+    scene = defaultScene();
+    backdrop = { kind: 'none' };
+    sceneObjects = [];
+    frameBox = undefined;
+    const next = await FabricImage.fromURL(objectUrl);
+    if (sequence !== loadSequence) return; // a newer load superseded this one
+    loadingPhoto = false;
+    image = next;
+    original = { width: next.width!, height: next.height! };
     pristine = { ...original };
     layers = { baseUrl: objectUrl, width: original.width, height: original.height, matteUrl: null };
     enhanceCache.clear();
     measureOpaqueBounds();
     crop = { x: 0, y: 0, width: original.width, height: original.height };
-    scene = defaultScene();
-    backdrop = { kind: 'none' };
-    sceneObjects = [];
-    frameBox = undefined;
-    image.set({ selectable: false, evented: false, originX: 'center', originY: 'center' });
-    studio.add(image);
+    next.set({ selectable: false, evented: false, originX: 'center', originY: 'center' });
+    studio.add(next);
     layoutScene();
     Object.assign(adjustments, defaultAdjustments());
     history.reset();
@@ -739,22 +753,31 @@ export function initEditor() {
     },
     async exportFile() {
       if (!image) return undefined;
-      // Hide the compare/mask overlays instead of detaching them: a duplicated overlay reference
-      // (see onCanvas/detachFromCanvas) would otherwise leak the "before" photo into the export.
-      const overlays = [comparisonImage, maskOverlay].filter((obj): obj is FabricImage => !!obj);
-      const wasVisible = overlays.map((obj) => obj.visible);
-      overlays.forEach((obj) => { obj.visible = false; });
-      let dataUrl: string;
-      if (frameBox) {
-        dataUrl = studio.toDataURL({ format: 'png', left: frameBox.left, top: frameBox.top, width: frameBox.width, height: frameBox.height, multiplier: 1 / frameBox.scale });
-      } else {
-        const width = image.getScaledWidth();
-        const height = image.getScaledHeight();
-        dataUrl = studio.toDataURL({ format: 'png', left: image.left! - width / 2, top: image.top! - height / 2, width, height, multiplier: crop.width / width });
+      // Render headlessly at native resolution instead of cropping the display canvas: fabric's
+      // toDataURL-with-multiplier loses the subject entirely when the stage shows a small photo
+      // enlarged (multiplier < 1), and a shared canvas lets overlays interfere with exports.
+      // composeScene builds the same graph at native size; the element is already filter-applied,
+      // so neutral adjustments are passed to avoid filtering twice.
+      const element = image.getElement() as HTMLImageElement | HTMLCanvasElement;
+      let subject: HTMLImageElement | HTMLCanvasElement = element;
+      let visible: Box | undefined = opaqueBounds;
+      if (crop.x !== 0 || crop.y !== 0 || crop.width !== original.width || crop.height !== original.height) {
+        const slice = document.createElement('canvas');
+        slice.width = Math.max(1, Math.round(crop.width));
+        slice.height = Math.max(1, Math.round(crop.height));
+        const ctx = slice.getContext('2d');
+        if (!ctx) throw new Error('Canvas rendering is unavailable.');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(element, crop.x, crop.y, crop.width, crop.height, 0, 0, slice.width, slice.height);
+        subject = slice;
+        visible = visibleProductBox({ left: 0, top: 0, width: crop.width, height: crop.height }, { left: crop.x, top: crop.y, width: crop.width, height: crop.height }, opaqueBounds);
       }
-      overlays.forEach((obj, i) => { obj.visible = wasVisible[i] ?? true; });
-      studio.requestRenderAll();
-      const blob = await (await fetch(dataUrl)).blob();
+      const composed = composeScene({
+        subject, width: crop.width, height: crop.height, visible,
+        scene, backdrop, adjustments: defaultAdjustments(),
+        backdropImage: backdrop.kind === 'image' ? backdropImages.get(backdrop.url) : undefined,
+      });
+      const blob = await new Promise<Blob>((resolve, reject) => composed.canvas.toBlob(b => b ? resolve(b) : reject(new Error('Your browser could not encode the export.')), 'image/png'));
       return new File([blob], `${title.textContent || 'image'}-edited.png`, { type: 'image/png' });
     },
     dispose() { if (objectUrl) URL.revokeObjectURL(objectUrl); for (const url of generatedUrls) URL.revokeObjectURL(url); generatedUrls.length = 0; aiTools.release(); removalEngine.release(); studio.dispose(); }
