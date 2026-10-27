@@ -100,7 +100,8 @@ const result = await optimizeImage(file, { format: 'webp', quality: 0.82, maxEdg
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for the deliberately staged path toward a more capable local-first photo studio.
+See [ROADMAP.md](ROADMAP.md) for the deliberately staged path toward a more capable local-first photo studio, and
+[STATUS.md](STATUS.md) for a dated record of what is shipped, verified, and still missing.
 
 ## Contributing and issues
 
