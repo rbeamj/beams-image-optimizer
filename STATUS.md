@@ -3,17 +3,17 @@
 Durable record of where the project actually is, so a new session can resume without chat history.
 Update this file at the end of any working session; keep it factual and dated.
 
-**Last verified: 2026-10-27** (v0.2.0 shipped: batch Studio presets, one shared export renderer, three Studio bugs fixed; `npm run typecheck` + `npm run smoke` added; dev + production QA green).
+**Last verified: 2026-10-27** (v0.2.0 deployed: batch Studio presets, one shared export renderer, three Studio bugs fixed; `npm run typecheck` + `npm run smoke` shipped; dev + production QA green).
 
 ## Version and remotes
 
 | Item | Value |
 | --- | --- |
 | Version | `0.2.0` (`package.json`) |
-| Local `main` | `42bd24b` — *Ship batch Studio presets across the Quick Optimize queue (v0.2.0)* |
-| GitHub `main` | `42bd24b` (in sync) |
+| Local `main` | `54be6d2` — *Fix three Studio bugs found by measurement; add typecheck + browser smoke* |
+| GitHub `main` | `54be6d2` (in sync) |
 | Other branches | `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged, safe to delete |
-| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — Pages run **#6, success**, serves `index-nc1Sa7Rh.js` (381.94 kB, gzip 120.02 kB), byte-identical to a fresh local `npm run build`; live batch smoke passed on the production build with a fresh profile (real HuggingFace model download, 21.3 s for one Marketplace-white export, 0 console errors) |
+| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — Pages run **#8, success**, serves `index-zNZv0jgf.js` (382.24 kB, gzip 120.06 kB), byte-identical to a fresh local `npm run build`. Earlier today: live batch smoke on a fresh profile passed with the real HuggingFace model download (21.3 s, 0 console errors) |
 | Open issues / PRs | none |
 
 The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__batch.rows()/file()`, `?ai-fail=`) do not affect the shipped build.
