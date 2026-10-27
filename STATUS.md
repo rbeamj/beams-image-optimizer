@@ -3,35 +3,44 @@
 Durable record of where the project actually is, so a new session can resume without chat history.
 Update this file at the end of any working session; keep it factual and dated.
 
-**Last verified: 2026-10-27** (working tree clean; fp16 WebGPU paths exercised on real `shader-f16` hardware).
+**Last verified: 2026-10-27** (batch Studio presets shipped and QA'd; Studio export-overlay leak found and fixed).
 
 ## Version and remotes
 
 | Item | Value |
 | --- | --- |
-| Version | `0.1.2` (`package.json`) |
-| Local `main` | `e0eb082` — *Refresh the roadmap and Tranche 1 docs to match v0.1.2* |
-| GitHub `main` | `e0eb082` (in sync) |
+| Version | `0.2.0` (`package.json`) |
+| Local `main` | `19a2168` — *Record measured fp16 WebGPU results on Intel gen-12lp* (this session's commit follows) |
+| GitHub `main` | `19a2168` (in sync) |
 | Other branches | `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged, safe to delete |
-| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — Pages run #4, success, serves `index-BgfvkFyE.js`, byte-identical to a fresh local `npm run build` |
+| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — last known good: Pages run #5, success, serves `index-BgfvkFyE.js` (will change with the batch-preset build) |
 | Open issues / PRs | none |
 
-The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `?ai-fail=`) do not affect the shipped build.
+The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__batch.rows()/file()`, `?ai-fail=`) do not affect the shipped build.
 
 ## Verified health (2026-10-27)
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 19 files, **180 tests passed** (~0.8 s) |
-| `npm run build` | passes; `dist/` ≈ 373 kB JS + 195 kB ORT worker, gzip 117 kB + 23 kB |
-| `npm run dev` | boots in ~0.2 s; app loads with **no console errors** |
+| `npm test` | 20 files, **191 tests passed** (~0.4 s) |
+| `npm run build` | passes; `dist/` ≈ 382 kB JS + 195 kB ORT worker, gzip 120 kB + 23 kB |
+| `npm run dev` | boots clean; app loads with **no console errors** |
 | Studio UI | all 10 panels present: Cutout, Refine, Cleanup, Enhance, Scene, Light, Color, Transform, Crop, Export |
 | fp16 WebGPU | **verified** 2026-10-27 on Intel UHD 770 (`gen-12lp`, `shader-f16`); Quality 1024 fp16 7.7 s warm, ~1.9× faster than fp32, matte matches fp32 (mean Δ 0.014/255) |
+| Batch Studio presets | **verified** 2026-10-27 in real Chrome over CDP (same iGPU): consent gate, 5 presets, cancel mid-batch, transparency, "My Studio setup", **0 console errors**; parity vs Studio export mean Δ 0.96/255 |
 
 ## What is actually built
 
 **Quick Optimize** — batch import, JPEG/PNG/WebP in and out, orientation-aware resize (Original → 4K + custom),
 quality control, 5 recipes, queue/cancel/download-all, before-after preview, per-result recipe and byte stats.
+Since v0.2.0 an optional **Studio preset** applies to every queued photo: AI cutout plus frame/backdrop/shadow
+composition, exported with the shared recipes. Built-ins (Marketplace white 1:1, Social 4:5, Banner 16:9,
+Catalog 4:3, Transparent PNG) mirror the Studio scene buttons; **My Studio setup** captures whatever frame,
+backdrop, shadow, light settings and cutout choice the open Studio photo has. The batch pipeline
+(`src/batch/`) reuses the same adaptive removal engine (one shared warm session set), the same scene math
+(`src/editor/scene.ts`), and a headless fabric compositor (`src/editor/compose.ts`) that mirrors the editor's
+scene graph, so batch output matches a single Studio export (measured mean Δ 0.96/255). Originals are never
+modified; savings compare against the user's input file, not the intermediate PNG.
 
 **Photo Studio** — browser-local, non-destructive, six-step workflow:
 
@@ -58,7 +67,7 @@ Also measured on Intel UHD 770 (`shader-f16`): Quality 1024 fp16 7.9 s total / 7
 | Area | State |
 | --- | --- |
 | AI opt-in friction | Re-enabled on every page load; no persisted opt-in, so it is not yet the one-click experience Photoroom has |
-| Batch studio edits / templates | Not implemented — Studio is single-image; batch preset application is the biggest workflow gap |
+| Batch studio edits / templates | **Shipped 2026-10-27 (v0.2.0)** — presets across the queue incl. "My Studio setup", headless composition parity-verified against Studio export. Per-photo editing stays single-image; crops, Magic Click and cleanup edits are not part of a captured preset |
 | Project save/load, layers, text, shapes, stickers | Not implemented (deliberately deferred in Tranche 1) |
 | Scene generation | Deterministic backdrops only; no generative scenes (kept out on purpose: privacy + licensing) |
 | Export formats | JPEG/PNG/WebP only; no AVIF/JXL/PDF/social-size matrices |
@@ -66,7 +75,7 @@ Also measured on Intel UHD 770 (`shader-f16`): Quality 1024 fp16 7.9 s total / 7
 | fp16 WebGPU paths | **Verified** on Intel UHD 770 — Auto picks Quality 1024 fp16, ~1.9× faster than fp32, output matches fp32. Apple Silicon and AMD `shader-f16` hardware remain unmeasured |
 | Integrated-GPU speed | An iGPU with fp16 is still slower than a discrete GPU: 7.7 s vs 2.1 s model-only for Quality 1024. Expect 4–8 s per cutout on integrated graphics, not sub-second |
 | WASM threading | Single-threaded on static hosting; real threads need COOP/COEP, which GitHub Pages cannot send |
-| Test coverage | All 180 tests are unit/logic tests; `src/editor/controller.ts` (57 kB, DOM + canvas) has no automated coverage — browser QA is manual |
+| Test coverage | All 191 tests are unit/logic tests; `src/editor/controller.ts` (58 kB, DOM + canvas) and the headless compositor have no automated coverage — browser QA is manual |
 | Tooling | No lint/format/typecheck-only script; `tsc -b` only runs inside `build` |
 
 ## Licensing posture
@@ -90,23 +99,38 @@ All documentation was refreshed against v0.1.2 on 2026-10-27:
 - `README.md` links this file from its Roadmap section.
 
 `docs/model-licensing.md`, `docs/background-removal-evaluation.md`, and `docs/realesrgan-audit.md` are current and were not changed.
-`docs/photo-studio-performance.md` gained a measured fp16 section (Intel UHD 770) on 2026-10-27.
+`docs/photo-studio-performance.md` gained a measured fp16 section (Intel UHD 770) on 2026-10-27 and a batch-preset
+timings + parity section the same day.
+
+## Bug fixed this session (2026-10-27)
+
+**Studio exports could contain the "before" photo.** `#compare` ships checked; the comparison overlay is managed
+with remove/add pairs, but fabric's `bringObjectToFront()` silently *re-adds* a removed object, so `remember()`
+could leave the overlay referenced twice. `remove()` then only ever cleared one reference, `exportFile()` rendered
+the other into the export, and switching photos kept the previous photo's overlay. Fixes: explicit canvas
+bookkeeping (`onCanvas`/`attachToCanvas`/`detachFromCanvas` in the controller), exports hide overlays instead of
+detaching them, and `load()` resets the overlay. Verified by instrumenting `Canvas.add` over CDP (duplicate gone,
+one reference, overlay aligned) and by the parity measurement above (34.85 → 0.96 mean Δ/255).
+
+Batch QA harness (not part of the repo): `C:\Temp\opencode\beams-batch\qa.mjs` — full suite;
+`diag*.mjs` — the parity/overlay investigations that found the leak.
 
 ## How to resume
 
 ```sh
 npm install
-npm test          # 180 tests
+npm test          # 191 tests
 npm run build     # also typechecks (tsc -b)
 npm run dev       # http://localhost:5173
 ```
 
-Windows PowerShell: use `npm.cmd` if `npm.ps1` is blocked. Dev-only QA hook: `window.__studio`
-(`layers()`, `src()`, `scene()`, `objects()`, `refilter()`) is available in development builds only.
+Windows PowerShell: use `npm.cmd` if `npm.ps1` is blocked. Dev-only QA hooks: `window.__studio`
+(`layers()`, `src()`, `scene()`, `objects()`, `refilter()`) and `window.__batch` (`rows()`, `file(i)`)
+are available in development builds only.
 
 ## Suggested next steps (not started)
 
-1. Persist the AI opt-in per browser (one click instead of every load) — smallest parity win.
-2. Batch apply of Studio presets (cutout + scene + export) across the Quick Optimize queue — largest parity win.
-3. Project save/load (IndexedDB) with reusable product templates.
-4. Add `npm run typecheck` and a browser smoke test for the studio controller.
+1. Persist the AI opt-in per browser (one click instead of every load) — smallest remaining parity win.
+2. Project save/load (IndexedDB) with reusable product templates.
+3. Add `npm run typecheck` and a browser smoke test for the Studio controller and the headless compositor.
+4. Save/cancel the batch queue itself across reloads, and per-row retry for failed photos.

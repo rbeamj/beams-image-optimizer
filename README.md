@@ -4,6 +4,12 @@
 
 Beams Image Optimizer is a free, open-source, browser-local product-image application with two experiences built on one reusable engine: **Quick Optimize** for fast batch exports and **Photo Studio** for careful single-image editing.
 
+## v0.2.0
+
+- Quick Optimize can apply a Studio preset across the whole queue: AI cutout, then frame, backdrop and shadow composition, exported with the shared recipes. Built-ins mirror the Studio scene presets, plus Transparent PNG, plus **My Studio setup** captured from the photo open in Photo Studio.
+- Batch output is composed headlessly from the same scene graph as the Studio export and matches it (measured mean difference below 1/255 per channel on the test rig).
+- Fixed a Studio export bug where the before/after comparison overlay could leak into exported files.
+
 ## v0.1.2
 
 - Photo Studio becomes a six-step product-photo workflow: AI cutout (BiRefNet with hardware-adaptive Auto/Fast/Quality), Magic Click refinement (MobileSAM), object cleanup (MI-GAN), Real-ESRGAN enhance, a scene editor and 2K export.
@@ -23,6 +29,7 @@ Image decoding, resizing, and encoding happen in your browser using standard bro
 - Adjustable output quality and Smallest File, Balanced, High Quality, Product Photo 1K, and Custom recipes
 - PNG/WebP transparency preservation where the browser encoder supports it; JPEG composites transparent pixels onto white
 - Batch queue, cancellation at safe processing boundaries, individual downloads, and download-all
+- Optional batch Studio preset: cut every photo out and place it on a backdrop — Marketplace white 1:1, Social 4:5, Banner 16:9, Catalog 4:3, Transparent PNG, or the setup of the photo currently open in Photo Studio — then export with the shared recipes
 - Before/after previews, byte statistics, and the actual recipe retained for each processed image
 - Light and dark presentation
 
@@ -36,6 +43,8 @@ Photo Studio is a browser-local, non-destructive product-photo editor. Work thro
 4. **Enhance** – optional Real-ESRGAN upscale of small photos to 1024 or 2048 px, with a before/after against a standard resize.
 5. **Scene** – transparent, solid, gradient or uploaded backgrounds; marketplace/social/banner/catalog presets; frame ratio, padding, position, subject size and rotation; ground-contact or drop shadows.
 6. **Export** – the shared format/quality recipes, capped at 2048 px for Studio exports. The export is rendered from the same scene as the preview.
+
+The same scene, backdrop, shadow and light settings can be captured as **My Studio setup** and applied to the whole Quick Optimize queue.
 
 Light, Color, Transform and Crop adjustments work at any point. Every step is undoable, before/after comparison is available throughout, and the original file is never modified. The subject is kept as layers (photo pixels plus a cutout matte), so you can redo the cutout, refine it, clean up the photo or enhance it without losing your scene settings. AI previews are never written into history or exports until accepted.
 

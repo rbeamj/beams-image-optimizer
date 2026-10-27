@@ -31,11 +31,23 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
   CPU/WASM as the last resort — verified on both a Pascal GPU (fp32 only) and Intel gen-12lp (fp16, ~1.9× faster
   than fp32)
 
+### Batch Studio presets (v0.2.0)
+
+- Quick Optimize applies a Studio preset across the queue: AI cutout, then frame/backdrop/shadow composition,
+  then the shared export recipes
+- Built-ins mirror the Studio scene presets plus Transparent PNG; **My Studio setup** captures the open photo's
+  frame, backdrop, shadow, light settings and cutout choice
+- Batch output is composed headlessly from the same scene graph and filter chain as the Studio export; measured
+  parity on the test rig is a mean difference of 0.96/255 per channel (resampling noise only)
+- The AI notice and opt-in gate are shared with the Studio, and one engine instance keeps a single set of warm
+  model sessions for both
+- Fixed with it: a Studio export bug where the before/after comparison overlay could be duplicated on the canvas
+  and leak the original photo into exported files
+
 ## Next
 
 Ordered by expected value, not committed for any release:
 
-- Batch application of Studio presets and templates across the Quick Optimize queue
 - A persisted AI opt-in so enabling the tools is one click instead of once per page load
 - Project save/load in the browser, plus reusable product templates
 - A `typecheck` script and an automated browser smoke test for the Studio controller

@@ -77,6 +77,29 @@ Findings:
   integrated GPU is what makes Quality viable on machines that have no discrete GPU at all.
 - MobileSAM, MI-GAN and Real-ESRGAN ship fp32-only, so their numbers are identical with or without `shader-f16`.
 
+## Batch Studio presets on integrated graphics (Intel UHD 770)
+
+Measured 2026-10-27 in the running app (`npm run dev`), driven over the DevTools protocol in headless Chrome 156
+on the same Intel UHD 770 (`shader-f16`) as the fp16 section, using photos from `public/bench/`. Pipeline per
+photo: decode → AI cutout (Auto → Quality 1024 fp16) → headless scene composition → shared-recipe export.
+
+| Photo | Preset / recipe | Cutout | Layout | Encode | Output |
+| --- | --- | --- | --- | --- | --- |
+| soda-bottle-pd.png | Marketplace white 1:1 · WebP 85% · 1K | 13.1 s (first in session) | 20 ms | 181 ms | 1024×1024, 16 KB |
+| water-bottle-cc0.png | Marketplace white 1:1 · WebP 85% · 1K | 7.8 s (warm) | 61 ms | 888 ms | 1024×1024, 8.8 KB |
+| worn-shoe-cc0.png | Marketplace white 1:1 · PNG 100% · 1K | 7.4 s (warm) | 58 ms | 671 ms | 1024×1024, 1.0 MB |
+
+Two photos export in 22.4 s wall. The dominant cost is the per-photo cutout — composition stays under 70 ms —
+so batch throughput follows model warm-up, exactly like single-photo Studio runs. "My Studio setup", Transparent
+PNG, and mid-batch cancel were exercised in the same pass with zero console errors.
+
+**Parity with a single Studio export**: the same photo cut out and framed in Photo Studio, exported through the
+Studio export button, and compared pixel-by-pixel with the batch output (both normalized to 1024 px) gives a mean
+per-channel difference of **0.96/255**, max 61/255, 2.4 % of pixels above 8/255 — consistent with two independent
+resampling chains rendering the same scene graph. Before the comparison-overlay export-leak fix, the same
+comparison showed 34.85/255 mean with 38.9 % of pixels above 8/255, because the "before" photo was being rendered
+over the left half of Studio exports.
+
 ## Memory
 
 - JS heap during the full workflow stayed between 25 and 82 MB (`performance.memory`).

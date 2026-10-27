@@ -1,7 +1,9 @@
-import { Canvas, Ellipse, FabricImage, type FabricObject, filters, Gradient, Point, Rect, Shadow, util } from 'fabric';
+import { Canvas, Ellipse, FabricImage, type FabricObject, Gradient, Point, Rect, Shadow, util } from 'fabric';
 import { CLEANUP_PANEL, mountAiTools, REFINE_PANEL } from './ai-tools';
-import { centerCrop, comparisonClip, normalizedAdjustment, sharpenMatrix, SnapshotHistory, temperatureMatrix, type CropRect } from './tools';
-import { alphaBounds, backdropPlacement, clampScene, visibleProductBox, type Box, customGradient, defaultScene, dropShadow, gradientStops, groundShadow, SCENE_PRESETS, type ScenePreset, linearCoords, placeSubject, type BackdropFit, type ColorStop, type FrameAspect, type GradientPreset, type SceneSettings, type ShadowStyle } from './scene';
+import { centerCrop, comparisonClip, SnapshotHistory, type CropRect } from './tools';
+import { alphaBounds, backdropPlacement, clampScene, visibleProductBox, type Box, customGradient, defaultScene, dropShadow, gradientStops, groundShadow, SCENE_PRESETS, type ScenePreset, linearCoords, placeSubject, type BackdropFit, type FrameAspect, type GradientPreset, type SceneSettings, type ShadowStyle } from './scene';
+import { adjustmentFilters } from './filters';
+import { defaultAdjustments, type Adjustments, type Backdrop, type StudioLook } from './looks';
 import { acknowledgeBgRemoval, BG_REMOVAL_NOTICE, hasAcknowledgedBgRemoval, type EdgeCleanup } from '../bgremove';
 import { removeAdaptive } from '../bgremove/adaptive';
 import { acknowledgeEnhanceLicense, enhanceImage, ENHANCE_LICENSE_SUMMARY, hasAcknowledgedEnhanceLicense, resizeBaseline, type EnhanceTargetEdge } from '../enhance';
@@ -11,18 +13,7 @@ import { loadMode, saveMode } from '../ai/device-profile';
 import type { RemovalMode } from '../ai/planner';
 import { canvasToUrl, compositeUrl, loadImage, matteFromUrl, matteToUrl, pixels, type SubjectLayers } from './subject';
 
-type Adjustments = {
-  exposure: number; brightness: number; contrast: number; saturation: number;
-  temperature: number; sharpness: number; rotation: number; flipX: boolean; flipY: boolean;
-  preset: 'none' | 'grayscale' | 'sepia';
-};
-type Backdrop =
-  | { kind: 'none' }
-  | { kind: 'color'; color: string }
-  | { kind: 'gradient'; stops: ColorStop[]; angle: number }
-  | { kind: 'image'; url: string; fit: BackdropFit };
 type Snapshot = { canvas: unknown; adjustments: Adjustments; crop: CropRect; original: { width: number; height: number }; comparisonUrl: string; scene: SceneSettings; backdrop: Backdrop; layers: SubjectLayers };
-const defaults = (): Adjustments => ({ exposure: 0, brightness: 0, contrast: 0, saturation: 0, temperature: 0, sharpness: 0, rotation: 0, flipX: false, flipY: false, preset: 'none' });
 
 export function initEditor() {
   const panelTabs = document.querySelector<HTMLElement>('.editor-panel .panel-tabs')!;
@@ -41,7 +32,7 @@ export function initEditor() {
   const comparePosition = document.querySelector<HTMLInputElement>('#compare-position')!;
   const comparePositionWrap = document.querySelector<HTMLElement>('#compare-position-wrap')!;
   const studio = new Canvas(element, { selection: false, preserveObjectStacking: true });
-  const adjustments = defaults();
+  const adjustments = defaultAdjustments();
   let image: FabricImage | undefined;
   let scene = defaultScene();
   let backdrop: Backdrop = { kind: 'none' };
@@ -69,6 +60,15 @@ export function initEditor() {
   /** Uncommitted tool result drawn in place of the subject; the committed image stays underneath, hidden. */
   let previewOverlay: FabricImage | undefined;
   const placement = (from: FabricImage) => ({ left: from.left, top: from.top, originX: from.originX, originY: from.originY, scaleX: from.scaleX, scaleY: from.scaleY, angle: from.angle, flipX: from.flipX, flipY: from.flipY, cropX: from.cropX, cropY: from.cropY, width: from.width, height: from.height, selectable: false, evented: false });
+  /**
+   * Canvas bookkeeping for overlays. fabric's add() never de-duplicates, and bringObjectToFront()
+   * silently re-adds an object that was removed from the canvas — so a remove/add dance around a
+   * layout pass can leave the same overlay referenced twice, after which remove() only ever clears
+   * one reference and the extra one leaks into exports. All overlay membership goes through these.
+   */
+  const onCanvas = <T extends object>(obj: T | undefined): obj is T => !!obj && (studio.getObjects() as object[]).includes(obj);
+  const detachFromCanvas = <T extends object>(obj: T | undefined) => { while (obj && (studio.getObjects() as object[]).includes(obj)) studio.remove(obj as never); };
+  const attachToCanvas = <T extends object>(obj: T | undefined) => { if (obj && !(studio.getObjects() as object[]).includes(obj)) studio.add(obj as never); };
   const syncPreviewOverlay = () => {
     if (!previewOverlay || !image) return;
     previewOverlay.set({ ...placement(image), shadow: image.shadow, clipPath: image.clipPath });
@@ -86,7 +86,7 @@ export function initEditor() {
   };
   const syncMaskOverlay = () => {
     if (!maskOverlay) return;
-    if (!image || !maskVisible) { studio.remove(maskOverlay); studio.requestRenderAll(); return; }
+    if (!image || !maskVisible) { detachFromCanvas(maskOverlay); studio.requestRenderAll(); return; }
     if (!studio.getObjects().includes(maskOverlay)) studio.add(maskOverlay);
     maskOverlay.set({ ...placement(image), opacity: 0.5, objectCaching: false });
     maskOverlay.dirty = true;
@@ -174,8 +174,8 @@ export function initEditor() {
     }
     const d = dropShadow(scene.shadow, { width: L.subject.width / L.zoom, height: L.subject.height / L.zoom });
     if (d) image.shadow = new Shadow({ color: d.color, blur: d.blur, offsetX: d.offsetX, offsetY: d.offsetY });
-    if (comparisonImage) studio.bringObjectToFront(comparisonImage);
-    if (cropFrame) studio.bringObjectToFront(cropFrame);
+    if (onCanvas(comparisonImage)) studio.bringObjectToFront(comparisonImage);
+    if (onCanvas(cropFrame)) studio.bringObjectToFront(cropFrame);
     studio.requestRenderAll();
   };
   const resize = () => {
@@ -279,23 +279,24 @@ export function initEditor() {
   });
   const remember = () => {
     if (restoring || cropFrame) return;
-    if (comparisonImage) studio.remove(comparisonImage);
+    detachFromCanvas(comparisonImage);
     sceneObjects.forEach((obj) => studio.remove(obj));
-    if (maskOverlay) studio.remove(maskOverlay);
-    if (previewOverlay) { studio.remove(previewOverlay); if (image) image.visible = true; }
+    detachFromCanvas(maskOverlay);
+    if (previewOverlay) { detachFromCanvas(previewOverlay); if (image) image.visible = true; }
     history.push({ canvas: studio.toJSON(), adjustments: { ...adjustments }, crop: { ...crop }, original: { ...original }, comparisonUrl, scene: structuredClone(scene), backdrop: structuredClone(backdrop), layers: { ...layers } });
     layoutScene();
-    if (comparisonImage) {
-      studio.add(comparisonImage);
-      studio.bringObjectToFront(comparisonImage);
-    }
+    attachToCanvas(comparisonImage);
+    if (onCanvas(comparisonImage)) studio.bringObjectToFront(comparisonImage);
+    // Scene, backdrop and crop handlers run remember() without applyAdjustments(); keep the
+    // before/after overlay aligned with the relaid-out image instead of leaving it where it was.
+    void updateComparison();
     updateHistory();
     updateSteps();
   };
   const updateComparison = async () => {
     comparePositionWrap.hidden = !compare.checked;
     if (!image || !compare.checked) {
-      if (comparisonImage) studio.remove(comparisonImage);
+      detachFromCanvas(comparisonImage);
       comparisonImage = undefined;
       studio.requestRenderAll();
       return;
@@ -307,9 +308,10 @@ export function initEditor() {
       // Overlapping refreshes may both load; only the first becomes the overlay.
       if (!comparisonImage) {
         comparisonImage = overlay;
-        studio.add(comparisonImage);
+        attachToCanvas(comparisonImage);
       }
     }
+    attachToCanvas(comparisonImage);
     const clip = comparisonClip(image.width!, image.height!, Number(comparePosition.value));
     comparisonImage.set({
       left: image.left, top: image.top, originX: image.originX, originY: image.originY,
@@ -321,23 +323,13 @@ export function initEditor() {
     comparisonImage.filters = [];
     comparisonImage.applyFilters();
     studio.bringObjectToFront(comparisonImage);
-    if (cropFrame) studio.bringObjectToFront(cropFrame);
+    if (onCanvas(cropFrame)) studio.bringObjectToFront(cropFrame);
     studio.requestRenderAll();
   };
   const applyAdjustments = () => {
     if (!image) return;
     image.set({ angle: adjustments.rotation, flipX: adjustments.flipX, flipY: adjustments.flipY });
-    const list: object[] = [
-      new filters.Brightness({ brightness: normalizedAdjustment(adjustments.exposure) }),
-      new filters.Brightness({ brightness: normalizedAdjustment(adjustments.brightness) }),
-      new filters.Contrast({ contrast: normalizedAdjustment(adjustments.contrast) }),
-      new filters.Saturation({ saturation: normalizedAdjustment(adjustments.saturation) }),
-      new filters.ColorMatrix({ matrix: temperatureMatrix(adjustments.temperature) })
-    ];
-    if (adjustments.sharpness) list.push(new filters.Convolute({ matrix: sharpenMatrix(adjustments.sharpness) }));
-    if (adjustments.preset === 'grayscale') list.push(new filters.Grayscale());
-    if (adjustments.preset === 'sepia') list.push(new filters.Sepia());
-    image.filters = list as never;
+    image.filters = adjustmentFilters(adjustments) as never;
     image.applyFilters();
     layoutScene();
     studio.requestRenderAll();
@@ -349,7 +341,7 @@ export function initEditor() {
   };
   const commit = () => { applyAdjustments(); remember(); };
   const resetGroup = (keys: (keyof Adjustments)[]) => {
-    const base = defaults();
+    const base = defaultAdjustments();
     keys.forEach((key) => { adjustments[key] = base[key] as never; });
     sync();
     commit();
@@ -425,6 +417,7 @@ export function initEditor() {
     objectUrl = URL.createObjectURL(file);
     comparisonUrl = objectUrl;
     previewOverlay = undefined;
+    comparisonImage = undefined;
     aiTools.reset();
     studio.clear();
     image = await FabricImage.fromURL(objectUrl);
@@ -441,7 +434,7 @@ export function initEditor() {
     image.set({ selectable: false, evented: false, originX: 'center', originY: 'center' });
     studio.add(image);
     layoutScene();
-    Object.assign(adjustments, defaults());
+    Object.assign(adjustments, defaultAdjustments());
     history.reset();
     title.textContent = file.name;
     empty.hidden = true;
@@ -682,7 +675,7 @@ export function initEditor() {
     studio.insertAt(index, next);
     image = next;
     measureOpaqueBounds();
-    if (comparisonImage) studio.remove(comparisonImage);
+    if (comparisonImage) detachFromCanvas(comparisonImage);
     comparisonImage = undefined;
     comparisonUrl = nextComparisonUrl;
     layoutScene();
@@ -711,7 +704,7 @@ export function initEditor() {
       return { x: x * layers.width / original.width, y: y * layers.height / original.height };
     },
     setMaskOverlay: (canvas, visible) => {
-      if (maskOverlay && maskOverlay.getElement() !== canvas) { studio.remove(maskOverlay); maskOverlay = undefined; }
+      if (maskOverlay && maskOverlay.getElement() !== canvas) { detachFromCanvas(maskOverlay); maskOverlay = undefined; }
       if (canvas && !maskOverlay) maskOverlay = new FabricImage(canvas);
       maskVisible = visible;
       syncMaskOverlay();
@@ -725,11 +718,32 @@ export function initEditor() {
     load(file: File) { void load(file); },
     /** True while a Magic Click or cleanup preview awaits Accept/Reject. */
     pendingPreview: () => previewOverlay !== undefined,
+    hasPhoto: () => !!image,
+    /** One shared engine: the batch runner reuses the Studio's warm model sessions instead of doubling GPU memory. */
+    removalEngine: () => removalEngine,
+    refreshGates: () => { syncBgrGate(); syncEnhanceGate(); },
+    /** Snapshot of the open photo's frame, backdrop, shadow, light settings and cutout choice, for batch presets. */
+    captureLook(): StudioLook | undefined {
+      if (!image) return undefined;
+      return {
+        scene: structuredClone(scene),
+        backdrop: structuredClone(backdrop),
+        adjustments: { ...adjustments },
+        cutout: {
+          mode: modeSelect.value as RemovalMode,
+          cleanup: document.querySelector<HTMLSelectElement>('#bgr-cleanup')!.value as EdgeCleanup,
+          refine: document.querySelector<HTMLInputElement>('#bgr-refine')!.checked,
+        },
+        backdropImage: backdrop.kind === 'image' ? backdropImages.get(backdrop.url) : undefined,
+      };
+    },
     async exportFile() {
       if (!image) return undefined;
-      const overlay = comparisonImage;
-      if (overlay) studio.remove(overlay);
-      if (maskOverlay) studio.remove(maskOverlay);
+      // Hide the compare/mask overlays instead of detaching them: a duplicated overlay reference
+      // (see onCanvas/detachFromCanvas) would otherwise leak the "before" photo into the export.
+      const overlays = [comparisonImage, maskOverlay].filter((obj): obj is FabricImage => !!obj);
+      const wasVisible = overlays.map((obj) => obj.visible);
+      overlays.forEach((obj) => { obj.visible = false; });
       let dataUrl: string;
       if (frameBox) {
         dataUrl = studio.toDataURL({ format: 'png', left: frameBox.left, top: frameBox.top, width: frameBox.width, height: frameBox.height, multiplier: 1 / frameBox.scale });
@@ -738,12 +752,8 @@ export function initEditor() {
         const height = image.getScaledHeight();
         dataUrl = studio.toDataURL({ format: 'png', left: image.left! - width / 2, top: image.top! - height / 2, width, height, multiplier: crop.width / width });
       }
-      if (overlay) {
-        studio.add(overlay);
-        comparisonImage = overlay;
-        void updateComparison();
-      }
-      syncMaskOverlay();
+      overlays.forEach((obj, i) => { obj.visible = wasVisible[i] ?? true; });
+      studio.requestRenderAll();
       const blob = await (await fetch(dataUrl)).blob();
       return new File([blob], `${title.textContent || 'image'}-edited.png`, { type: 'image/png' });
     },
