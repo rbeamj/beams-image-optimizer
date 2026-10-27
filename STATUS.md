@@ -3,17 +3,17 @@
 Durable record of where the project actually is, so a new session can resume without chat history.
 Update this file at the end of any working session; keep it factual and dated.
 
-**Last verified: 2026-10-27** (batch Studio presets shipped and QA'd; Studio export-overlay leak found and fixed).
+**Last verified: 2026-10-27** (v0.2.0 shipped: batch Studio presets; Studio export-overlay leak fixed; dev + production QA green).
 
 ## Version and remotes
 
 | Item | Value |
 | --- | --- |
 | Version | `0.2.0` (`package.json`) |
-| Local `main` | `19a2168` — *Record measured fp16 WebGPU results on Intel gen-12lp* (this session's commit follows) |
-| GitHub `main` | `19a2168` (in sync) |
+| Local `main` | `42bd24b` — *Ship batch Studio presets across the Quick Optimize queue (v0.2.0)* |
+| GitHub `main` | `42bd24b` (in sync) |
 | Other branches | `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged, safe to delete |
-| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — last known good: Pages run #5, success, serves `index-BgfvkFyE.js` (will change with the batch-preset build) |
+| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — Pages run **#6, success**, serves `index-nc1Sa7Rh.js` (381.94 kB, gzip 120.02 kB), byte-identical to a fresh local `npm run build`; live batch smoke passed on the production build with a fresh profile (real HuggingFace model download, 21.3 s for one Marketplace-white export, 0 console errors) |
 | Open issues / PRs | none |
 
 The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__batch.rows()/file()`, `?ai-fail=`) do not affect the shipped build.
@@ -112,8 +112,9 @@ bookkeeping (`onCanvas`/`attachToCanvas`/`detachFromCanvas` in the controller), 
 detaching them, and `load()` resets the overlay. Verified by instrumenting `Canvas.add` over CDP (duplicate gone,
 one reference, overlay aligned) and by the parity measurement above (34.85 → 0.96 mean Δ/255).
 
-Batch QA harness (not part of the repo): `C:\Temp\opencode\beams-batch\qa.mjs` — full suite;
-`diag*.mjs` — the parity/overlay investigations that found the leak.
+Batch QA harnesses (not part of the repo): `C:\Temp\opencode\beams-batch\qa.mjs` — full dev-server suite;
+`live.mjs` — production smoke against the deployed site; `diag*.mjs` — the parity/overlay investigations
+that found the leak.
 
 ## How to resume
 
