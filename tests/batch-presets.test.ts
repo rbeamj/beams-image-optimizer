@@ -47,6 +47,39 @@ describe('built-in batch presets', () => {
     expect(transparent.backdrop).toEqual({ kind: 'none' });
     expect(transparent.scene.aspect).toBe('1:1');
   });
+
+  describe('combined presets (cutout tier + scene + bundled export recipe)', () => {
+    it('bundle documented marketplace recipes that override the shared export settings', () => {
+      expect(BATCH_PRESETS['amazon-white']).toMatchObject({ label: 'Amazon white 2K', mode: 'quality', cleanup: 'balanced', cutout: true, recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 }, scene: { aspect: '1:1' }, backdrop: { kind: 'color', color: '#ffffff' } });
+      expect(BATCH_PRESETS['ebay-white']).toMatchObject({ label: 'eBay white 1600', mode: 'quality', cleanup: 'balanced', recipe: { format: 'jpeg', quality: .9, maxEdge: 1600 } });
+      expect(BATCH_PRESETS['transparent-max']).toMatchObject({ label: 'Transparent PNG · Max', mode: 'quality', cleanup: 'balanced', backdrop: { kind: 'none' }, recipe: { format: 'png', quality: 1, maxEdge: 2048 } });
+    });
+
+    it('keep the subject inside the frame like every other preset', () => {
+      for (const id of ['amazon-white', 'ebay-white', 'transparent-max'] as const) {
+        const p = placeSubject({ width: 1200, height: 900 }, { left: 100, top: 50, width: 900, height: 800 }, BATCH_PRESETS[id].scene);
+        expect(p.subject.left).toBeGreaterThanOrEqual(0);
+        expect(p.subject.top).toBeGreaterThanOrEqual(0);
+        expect(p.subject.left + p.subject.width).toBeLessThanOrEqual(p.frame.width + 1e-6);
+        expect(p.subject.top + p.subject.height).toBeLessThanOrEqual(p.frame.height + 1e-6);
+      }
+    });
+
+    it('describe their quality tier and say they override the export settings', () => {
+      const hint = presetDescription(BATCH_PRESETS['amazon-white']);
+      expect(hint).toContain('Quality 1024 cutout with balanced edges');
+      expect(hint).toContain('Exports JPEG · 90% · 2K');
+      expect(hint).toContain('overrides the export settings above');
+      const ebay = presetDescription(BATCH_PRESETS['ebay-white']);
+      expect(ebay).toContain('1600px');
+      expect(presetDescription(BATCH_PRESETS['transparent-max'])).toMatch(/transparen/i);
+    });
+
+    it('leave scene-only presets borrowing the shared export settings', () => {
+      expect(BATCH_PRESETS.marketplace.recipe).toBeUndefined();
+      expect(presetDescription(BATCH_PRESETS.marketplace)).toContain('Exports with the settings above.');
+    });
+  });
 });
 
 describe('builtInPreset', () => {

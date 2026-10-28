@@ -62,6 +62,14 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
   apply it to any photo in Photo Studio, or run it across the Quick Optimize queue from the batch preset
   list. Image backdrops persist with their blob. Re-running a preset over the queue reprocesses
   already-done rows in one pass (verified in the AI QA suite)
+- Combined presets bundle a cutout tier, a scene and their own export recipe (overriding the shared
+  settings): Amazon white 2K (Quality 1024, balanced edges, pure-white square, JPEG 90% 2048 — rules from
+  Amazon Seller Central: pure white RGB 255, ~85% frame fill, 2000px+ recommended, JPEG) and eBay white 1600
+  (eBay photo guidance: ~1600px longest side, white/neutral, JPEG). Verified end-to-end in the AI QA suite:
+  a 2048×2048 JPEG with the recipe reported and applied
+- Per-row comparison actions: Copy duplicates a queue photo, Process/Reprocess re-runs one row with the
+  current recipe and preset, Remove drops a row, and card thumbnails show the processed result — so an
+  operator can run two presets over copies of the same photo and keep the one they like
 - The Quick Optimize queue survives reloads: imports, results (with their recipe) and failures are kept in
   IndexedDB, failed rows get a Retry button that reprocesses with the current recipe and preset, and a
   Clear button resets the list
@@ -86,9 +94,9 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
 
 Ordered by expected value, not committed for any release:
 
-- Additional marketplace export presets where the framing rules are documented
+- More marketplace presets (Shopify, Etsy, Walmart…) where the framing rules are documented
 - Lint/format tooling on top of the existing typecheck + smoke
-- Persist more undo history per project (currently capped at ten snapshots) if storage allows
+- Persist more undo history per project (currently capped at ten snapshots) if storage profiling allows
 
 ## Longer term
 

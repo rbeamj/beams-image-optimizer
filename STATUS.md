@@ -3,7 +3,7 @@
 Durable record of where the project actually is, so a new session can resume without chat history.
 Update this file at the end of any working session; keep it factual and dated.
 
-**Last verified: 2026-10-28** (v0.2.0: batch presets, projects with undo history, templates, durable queue, one shared export renderer; five Studio bugs fixed; 45-check smoke gates CI; dev + AI QA green).
+**Last verified: 2026-10-28** (dev branch: combined marketplace presets with bundled recipes, per-row A/B comparison actions, undo fixes + project history — all verified; `main` last published at run #15; work waits on `dev` until the user asks to publish).
 
 ## Version and remotes
 
@@ -12,7 +12,7 @@ Update this file at the end of any working session; keep it factual and dated.
 | Version | `0.2.0` (`package.json`) |
 | Local `main` | `039ea74` — *Fix two long-standing undo bugs; persist undo history with projects* |
 | GitHub `main` | `039ea74` (in sync) |
-| Branches | **`dev` is the development branch** (created 2026-10-28): work lands and is pushed there to save progress. Merge `dev` → `main` and push `main` to publish — the Pages deploy runs on push to `main` only, so nothing publishes until the merge. `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged into main long ago, safe to delete |
+| Branches | **`dev` is the development branch**: work lands and is pushed there to save progress. Merge `dev` → `main` and push `main` to publish — the Pages deploy runs on push to `main` only. As of 2026-10-28, `dev` is 2 commits ahead of `main` (the workflow doc + combined presets and per-row comparison). `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged into main long ago, safe to delete |
 | Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — Pages run **#14, success** (build + **smoke 45/45 in CI** + deploy all green), serves `index-TBjCRGZI.js` (398.91 kB, gzip 124.42 kB), byte-identical to a fresh local `npm run build` |
 | Open issues / PRs | none |
 
@@ -22,7 +22,7 @@ The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__bat
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 23 files, **220 tests passed** (~0.4 s) |
+| `npm test` | 24 files, **224 tests passed** (~0.5 s) |
 | `npm run build` | passes; `dist/` ≈ 399 kB JS + 195 kB ORT worker, gzip 124 kB + 24 kB |
 | `npm run dev` | boots clean; app loads with **no console errors** |
 | Studio UI | all 10 panels present: Cutout, Refine, Cleanup, Enhance, Scene, Light, Color, Transform, Crop, Export |
@@ -32,7 +32,8 @@ The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__bat
 | Templates | **verified** 2026-10-27 via `npm run smoke`: save from a tuned photo → apply to a *different* photo (frame, exposure and scene all carried over) → appears in the batch preset list with a working `template:` value |
 | Durable queue | **verified** 2026-10-27 via `npm run smoke`: imports, results and a decode-failed row survive a reload; Retry reprocesses and reports; Clear resets. Immediate writes (no debounce) after the starvation bug was found by the probe harness |
 | Undo correctness | **verified** 2026-10-28: two long-standing bugs fixed — `restore()` never reverted Light/Color/Transform adjustments, and it re-measured the subject from the unsettled restored image (one sampling step smaller — the cause of a parity regression the AI QA suite caught). Parity re-measured at mean Δ 0.216/255, 0 % over 2/255; undo across a real cutout reverts the scene while keeping the matte |
-| `npm run smoke` | **verified** 2026-10-28: **45/45** browser checks in ~10 s (boot, opt-in persistence, quick optimize, 10 panels, mid-decode preset race, overlay single-reference, export purity, adjustments, in-session undo/redo byte-identity, project round-trip + history, templates, queue persistence/retry/clear, 0 console errors) |
+| Combined presets | **verified** 2026-10-28 end-to-end in the AI QA suite: Amazon white 2K produced a 2048×2048 JPEG (117 KB) with the preset's own recipe — Quality 1024 cutout, balanced edges, pure-white square — reported in the status and applied over the shared settings. eBay white 1600 and Transparent PNG · Max share the same machinery; unit tests pin the recipes and hints |
+| `npm run smoke` | **verified** 2026-10-28: **50/50** browser checks in ~11 s (boot, opt-in persistence, quick optimize, combined-preset hint, result thumbnails, Copy/Process/Remove per-row actions, 10 panels, mid-decode preset race, overlay single-reference, export purity, adjustments, in-session undo/redo byte-identity, project round-trip + history, templates, queue persistence/retry/clear, 0 console errors) |
 
 ## What is actually built
 
@@ -179,11 +180,11 @@ investigations behind the bugs above. The durable regression suite is `scripts/s
 
 ```sh
 npm install
-npm test            # 220 unit/logic tests
+npm test            # 224 unit/logic tests
 npm run typecheck   # tsc -b (same check the build runs, without vite)
 npm run build       # production build into dist/
 npm run dev         # http://localhost:5173 — keep it running, then:
-npm run smoke       # 45 browser checks (needs the dev server + a local Chrome; CHROME_PATH overrides)
+npm run smoke       # 50 browser checks (needs the dev server + a local Chrome; CHROME_PATH overrides)
 ```
 
 The smoke suite also runs in CI: the Pages workflow installs Chrome, boots the dev server, and blocks the
@@ -199,7 +200,7 @@ user asks to publish; that push is what triggers the Pages build + CI smoke + de
 
 ## Suggested next steps (not started)
 
-1. Additional marketplace export presets where the framing rules are documented.
+1. More marketplace presets (Shopify, Etsy, Walmart…) where the framing rules are documented.
 2. Lint/format tooling on top of the existing typecheck + smoke.
 3. Persist more undo history per project (currently capped at ten snapshots) if storage profiling allows.
 4. Batch presets currently re-run the AI cutout for every photo even when a row already has one; reusing the existing matte would make queue re-runs much faster.

@@ -13,6 +13,8 @@ Beams Image Optimizer is a free, open-source, browser-local product-image applic
 - Added `npm run typecheck` and `npm run smoke`, a browser regression suite (no extra dependencies) guarding the opt-in persistence, export purity, undo fidelity, projects, templates, the queue, and the fixes above.
 - Photo Studio **projects**: save the open photo with its cutout, edits, light settings and scene into this browser (IndexedDB), and reopen it later — even after a reload — with the export reproducing byte-for-byte and the **undo history** (up to 10 recent steps) restored alongside it.
 - Reusable **templates**: save the current look (frame, backdrop, shadow, light settings) under a name, apply it to any photo in Photo Studio, or pick it in Quick Optimize's batch preset list to run it across the whole queue.
+- **Combined presets**: Amazon white 2K (Quality 1024 cutout with balanced edges, pure-white square, JPEG 90% 2048), eBay white 1600, and Transparent PNG · Max — each bundles its own export recipe and overrides the shared export settings, with the framing rules documented from Amazon Seller Central and eBay's photo guidance.
+- **Per-row comparison in the queue**: Copy a photo, Process or Reprocess each copy with a different preset, compare the processed thumbnails right in the cards, and Remove the loser. Card thumbnails show the processed result, not the input.
 - The Quick Optimize **queue survives reloads**: imports, results and failures are kept in this browser, failed rows get a Retry button, and a Clear button resets the list.
 - The browser smoke suite now runs in CI (GitHub Pages deploys are gated on it) and grew to 45 checks covering all of the above.
 
@@ -35,7 +37,7 @@ Image decoding, resizing, and encoding happen in your browser using standard bro
 - Adjustable output quality and Smallest File, Balanced, High Quality, Product Photo 1K, and Custom recipes
 - PNG/WebP transparency preservation where the browser encoder supports it; JPEG composites transparent pixels onto white
 - Batch queue, cancellation at safe processing boundaries, individual downloads, and download-all
-- Optional batch Studio preset: cut every photo out and place it on a backdrop — Marketplace white 1:1, Social 4:5, Banner 16:9, Catalog 4:3, Transparent PNG, or the setup of the photo currently open in Photo Studio — then export with the shared recipes
+- Optional batch Studio preset: cut every photo out and place it on a backdrop — Marketplace white 1:1, Social 4:5, Banner 16:9, Catalog 4:3, Transparent PNG, Amazon white 2K, eBay white 1600, Transparent PNG · Max, or the setup of the photo currently open in Photo Studio. Combined presets bring their own export recipe; any row can be copied, processed and removed to compare two presets side by side
 - Before/after previews, byte statistics, and the actual recipe retained for each processed image
 - Saved projects in Photo Studio: reopen a photo with its cutout, edits and scene after any reload (browser-local IndexedDB, nothing leaves the browser)
 - Reusable look templates: named frame/backdrop/shadow/light looks, applicable to any photo or the whole queue

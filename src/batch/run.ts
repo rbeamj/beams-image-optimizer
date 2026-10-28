@@ -10,11 +10,11 @@ import { composeScene, imageAlphaBounds } from '../editor/compose';
 import { applyMatteAlpha, canvasToUrl, loadImage, pixels, rgbaCanvas } from '../editor/subject';
 import { studioEdge } from '../editor/tools';
 import { optimizeImage } from '../engine/optimizer';
-import type { ImageResult, OutputFormat } from '../engine/types';
+import type { ImageResult } from '../engine/types';
 import { placeSubject } from '../editor/scene';
-import type { BatchPreset } from './presets';
+import type { BatchPreset, PresetRecipe } from './presets';
 
-export type PresetRecipe = { format: OutputFormat; quality: number; maxEdge: number; background?: string };
+export type { PresetRecipe };
 export type PresetTimings = { decodeMs: number; cutoutMs: number; layoutMs: number; encodeMs: number };
 export type PresetImageResult = ImageResult & { presetId: string; presetLabel: string; timings: PresetTimings };
 

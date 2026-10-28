@@ -180,7 +180,7 @@ const HELPERS = `
       const sel = document.querySelector('#batch-preset-select');
       sel.value = id;
       sel.dispatchEvent(new Event('change', { bubbles: true }));
-      return { gateVisible: !document.querySelector('#batch-ack').hidden, label: document.querySelector('#process').textContent };
+      return { gateVisible: !document.querySelector('#batch-ack').hidden, label: document.querySelector('#process').textContent, hint: document.querySelector('#batch-preset-hint').textContent };
     },
     saveProject: (name) => {
       document.querySelector('#project-name').value = name;
@@ -280,6 +280,21 @@ const HELPERS = `
       return window.__s.waitFor(() => /Reprocessed|broken\.png:/.test(document.querySelector('#status').textContent || '') ? document.querySelector('#status').textContent : null, 30000, 100);
     },
     clearQueue: () => { document.querySelector('#clear-queue').click(); return document.querySelector('#status').textContent; },
+    queueNames: () => [...document.querySelectorAll('#queue .image-card strong')].map(e => e.textContent),
+    copyRow: async (index) => {
+      document.querySelectorAll('#queue .image-card [data-copy]')[index]?.click();
+      await window.__s.waitFor(() => document.querySelectorAll('#queue .image-card').length >= 2, 10000);
+      return { names: window.__s.queueNames() };
+    },
+    processRow: async (index) => {
+      document.querySelectorAll('#queue .image-card [data-reprocess]')[index]?.click();
+      return window.__s.waitFor(() => /Reprocessed/.test(document.querySelector('#status').textContent || '') ? document.querySelector('#status').textContent : null, 30000, 100);
+    },
+    removeRow: async (index) => {
+      document.querySelectorAll('#queue .image-card [data-remove]')[index]?.click();
+      await window.__s.sleep(300);
+      return { names: window.__s.queueNames() };
+    },
   };
   'smoke-helpers-ready'
 `;
@@ -347,6 +362,19 @@ async function main() {
     const card = await cdp.evaluate(`window.__s.card()`);
     check('quick: result rendered', card.done && card.dims === '64×64', `${card.dims} — ${card.detail}`);
     check('quick: output bytes recorded', card.row?.result?.bytes > 0, `${card.row?.result?.bytes} bytes`);
+
+    // 4b — combined presets carry their own recipe; per-row actions make A/B comparison possible
+    const amazonHint = await cdp.evaluate(`window.__s.selectPreset('amazon-white')`);
+    check('preset: Amazon white 2K bundles its cutout tier and recipe', /Quality 1024 cutout with balanced edges/.test(amazonHint.hint) && /Exports JPEG · 90% · 2K/.test(amazonHint.hint) && /overrides the export settings above/.test(amazonHint.hint), amazonHint.hint);
+    await cdp.evaluate(`window.__s.selectPreset('none')`);
+    const thumbIsResult = await cdp.evaluate(`(async () => { for (let i = 0; i < 100; i++) { const img = document.querySelector('#queue .image-card img'); if (img && img.src.startsWith('data:image')) return true; await new Promise(r => setTimeout(r, 100)); } return document.querySelector('#queue .image-card img')?.src.slice(0, 40) ?? 'no card'; })()`);
+    check('queue: card thumbnail shows the processed result', thumbIsResult === true, String(thumbIsResult));
+    const copied = await cdp.evaluate(`window.__s.copyRow(0)`);
+    check('queue: Copy duplicates the row', copied.names.length === 2 && copied.names[0] === copied.names[1], JSON.stringify(copied.names));
+    const processed = await cdp.evaluate(`window.__s.processRow(1)`);
+    check('queue: Process re-runs a single row', /Reprocessed/.test(processed ?? ''), String(processed));
+    const removed = await cdp.evaluate(`window.__s.removeRow(1)`);
+    check('queue: Remove drops the row', removed.names.length === 1, JSON.stringify(removed.names));
 
     // 5 — Studio: panels
     const title = await cdp.evaluate(`window.__s.editFirst()`);
