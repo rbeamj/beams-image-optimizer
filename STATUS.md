@@ -12,7 +12,7 @@ Update this file at the end of any working session; keep it factual and dated.
 | Version | `0.2.0` (`package.json`) |
 | Local `main` | `039ea74` — *Fix two long-standing undo bugs; persist undo history with projects* |
 | GitHub `main` | `039ea74` (in sync) |
-| Other branches | `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged, safe to delete |
+| Branches | **`dev` is the development branch** (created 2026-10-28): work lands and is pushed there to save progress. Merge `dev` → `main` and push `main` to publish — the Pages deploy runs on push to `main` only, so nothing publishes until the merge. `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged into main long ago, safe to delete |
 | Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — Pages run **#14, success** (build + **smoke 45/45 in CI** + deploy all green), serves `index-TBjCRGZI.js` (398.91 kB, gzip 124.42 kB), byte-identical to a fresh local `npm run build` |
 | Open issues / PRs | none |
 
@@ -192,6 +192,10 @@ deploy on all 45 checks passing.
 Windows PowerShell: use `npm.cmd` if `npm.ps1` is blocked. Dev-only QA hooks: `window.__studio`
 (`layers()`, `src()`, `scene()`, `history()`, `objects()`, `refilter()`) and `window.__batch` (`rows()`, `file(i)`)
 are available in development builds only.
+
+**Branch workflow (since 2026-10-28):** do the work on `dev` and push it there to save progress —
+`git push origin dev` does not deploy anything. Merge `dev` into `main` and push `main` only when the
+user asks to publish; that push is what triggers the Pages build + CI smoke + deploy.
 
 ## Suggested next steps (not started)
 
