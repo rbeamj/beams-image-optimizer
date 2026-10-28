@@ -16,7 +16,21 @@ import { canvasToUrl, compositeUrl, loadImage, matteFromUrl, matteToUrl, pixels,
 import type { StoredProjectData } from './projects';
 import type { StoredTemplateData } from './templates';
 
-type Snapshot = { canvas: unknown; adjustments: Adjustments; crop: CropRect; original: { width: number; height: number }; comparisonUrl: string; scene: SceneSettings; backdrop: Backdrop; layers: SubjectLayers };
+export type Snapshot = { canvas: unknown; adjustments: Adjustments; crop: CropRect; original: { width: number; height: number }; comparisonUrl: string; scene: SceneSettings; backdrop: Backdrop; layers: SubjectLayers; opaque: Box | undefined };
+
+/** How many of the most recent undo snapshots travel with a saved project. */
+const MAX_PERSISTED_SNAPSHOTS = 10;
+
+/** Rewrites the image `src` references inside a serialized canvas so a reopened project can re-enliven them. */
+function remapCanvasSources(canvas: unknown, urls: Map<string, string>) {
+  if (!canvas || typeof canvas !== 'object') return canvas;
+  const objects = (canvas as { objects?: unknown[] }).objects;
+  if (!Array.isArray(objects)) return canvas;
+  return { ...(canvas as Record<string, unknown>), objects: objects.map(object => {
+    const src = (object as { src?: unknown } | null)?.src;
+    return typeof src === 'string' && urls.has(src) ? { ...(object as Record<string, unknown>), src: urls.get(src) } : object;
+  }) };
+}
 
 export function initEditor() {
   const panelTabs = document.querySelector<HTMLElement>('.editor-panel .panel-tabs')!;
@@ -290,7 +304,7 @@ export function initEditor() {
     sceneObjects.forEach((obj) => studio.remove(obj));
     detachFromCanvas(maskOverlay);
     if (previewOverlay) { detachFromCanvas(previewOverlay); if (image) image.visible = true; }
-    history.push({ canvas: studio.toJSON(), adjustments: { ...adjustments }, crop: { ...crop }, original: { ...original }, comparisonUrl, scene: structuredClone(scene), backdrop: structuredClone(backdrop), layers: { ...layers } });
+    history.push({ canvas: studio.toJSON(), adjustments: { ...adjustments }, crop: { ...crop }, original: { ...original }, comparisonUrl, scene: structuredClone(scene), backdrop: structuredClone(backdrop), layers: { ...layers }, opaque: opaqueBounds ? { ...opaqueBounds } : undefined });
     layoutScene();
     attachToCanvas(comparisonImage);
     if (onCanvas(comparisonImage)) studio.bringObjectToFront(comparisonImage);
@@ -408,7 +422,14 @@ export function initEditor() {
     original = { ...snapshot.original };
     comparisonUrl = snapshot.comparisonUrl;
     layers = { ...snapshot.layers };
-    measureOpaqueBounds();
+    // The look must come from the snapshot too: without this, undo/redo restored the canvas and scene
+    // but silently kept the current Light/Color/Transform values (a long-standing bug — applyAdjustments
+    // below would immediately re-apply the un-reverted adjustments over the restored image).
+    Object.assign(adjustments, snapshot.adjustments);
+    // Undo must restore the exact layout the state was captured with. Re-measuring here used to read
+    // the just-enlivened fabric image before it settled and produced bounds one probe sample smaller,
+    // silently shrinking the frame after any undo/redo (found via the batch/export parity measurement).
+    opaqueBounds = snapshot.opaque === undefined || snapshot.opaque === null ? undefined : { ...snapshot.opaque };
     restoring = false;
     sync();
     applyAdjustments();
@@ -465,6 +486,20 @@ export function initEditor() {
   const captureProject = async (): Promise<StoredProjectData | undefined> => {
     if (!image) return undefined;
     const grab = (url: string) => fetch(url).then(response => response.blob());
+    // Undo history: keep the most recent snapshots, with every URL they reference pooled as a blob
+    // so the whole stack can be rebuilt with fresh object URLs when the project is reopened.
+    const stack = history.stack();
+    const start = Math.max(0, stack.entries.length - MAX_PERSISTED_SNAPSHOTS);
+    const snapshots = stack.entries.slice(start);
+    const poolUrls = new Set<string>();
+    for (const snapshot of snapshots) {
+      poolUrls.add(snapshot.comparisonUrl);
+      poolUrls.add(snapshot.layers.baseUrl);
+      if (snapshot.layers.matteUrl) poolUrls.add(snapshot.layers.matteUrl);
+      const objects = (snapshot.canvas as { objects?: { src?: unknown }[] } | null)?.objects;
+      if (Array.isArray(objects)) for (const object of objects) if (typeof object?.src === 'string') poolUrls.add(object.src);
+    }
+    const pool = await Promise.all([...poolUrls].map(async url => ({ url, blob: await grab(url) })));
     return {
       fileName: originalFile?.name ?? title.textContent ?? 'photo',
       fileType: originalFile?.type ?? 'image/png',
@@ -484,6 +519,7 @@ export function initEditor() {
       crop: { ...crop },
       scene: structuredClone(scene),
       backdrop: structuredClone(backdrop),
+      history: snapshots.length ? { snapshots: structuredClone(snapshots), cursor: stack.index - start, pool } : null,
     };
   };
 
@@ -547,13 +583,28 @@ export function initEditor() {
     subject.set({ selectable: false, evented: false, originX: 'center', originY: 'center', cropX: crop.x, cropY: crop.y, width: crop.width, height: crop.height });
     studio.add(subject);
     layoutScene();
-    history.reset();
     title.textContent = data.fileName;
     empty.hidden = true;
     element.hidden = false;
     sync();
     applyAdjustments();
-    remember();
+    // Restore the saved undo history when the record carries one: every pooled blob gets a fresh
+    // object URL and the references inside each snapshot are remapped to it. Old records without
+    // history start fresh, exactly as before.
+    if (data.history && data.history.snapshots.length) {
+      const urlMap = new Map<string, string>(data.history.pool.map(entry => [entry.url, registerUrl(URL.createObjectURL(entry.blob))]));
+      const remap = (url: string) => urlMap.get(url) ?? url;
+      history.load(data.history.snapshots.map(snapshot => ({
+        ...snapshot,
+        comparisonUrl: remap(snapshot.comparisonUrl),
+        layers: { ...snapshot.layers, baseUrl: remap(snapshot.layers.baseUrl), matteUrl: snapshot.layers.matteUrl ? remap(snapshot.layers.matteUrl) : null },
+        canvas: remapCanvasSources(snapshot.canvas, urlMap),
+      })), data.history.cursor);
+    } else {
+      history.reset();
+      remember();
+    }
+    updateHistory();
     updateClearEnhance();
     return true;
   };
@@ -865,7 +916,7 @@ export function initEditor() {
     refreshOverlay: () => syncMaskOverlay(),
     blocked: () => !!cropFrame || removing || enhancing,
   });
-  if (import.meta.env.DEV) Object.assign(window, { __studio: { layers: () => ({ ...layers }), src: () => image?.getSrc(), scene: () => structuredClone(scene), objects: () => studio.getObjects().map(o => ({ type: o.type, isImage: o === image, visible: o.visible, opacity: o.opacity, left: Math.round(o.left ?? 0), top: Math.round(o.top ?? 0), scaleX: o.scaleX, width: o.width, height: o.height, clip: !!o.clipPath, cacheKey: (o as FabricImage).cacheKey })), refilter: (withFilters = true) => { if (!image) return; if (!withFilters) image.filters = []; image.applyFilters(); studio.requestRenderAll(); } } });
+  if (import.meta.env.DEV) Object.assign(window, { __studio: { layers: () => ({ ...layers }), src: () => image?.getSrc(), scene: () => structuredClone(scene), history: () => history.stack(), objects: () => studio.getObjects().map(o => ({ type: o.type, isImage: o === image, visible: o.visible, opacity: o.opacity, left: Math.round(o.left ?? 0), top: Math.round(o.top ?? 0), scaleX: o.scaleX, width: o.width, height: o.height, clip: !!o.clipPath, cacheKey: (o as FabricImage).cacheKey })), refilter: (withFilters = true) => { if (!image) return; if (!withFilters) image.filters = []; image.applyFilters(); studio.requestRenderAll(); } } });
 
   const api = {
     load(file: File) { void load(file); },

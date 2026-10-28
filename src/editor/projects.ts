@@ -8,9 +8,14 @@ import type { RemovalMode } from '../ai/planner';
 import type { SceneSettings } from './scene';
 import type { Adjustments, Backdrop } from './looks';
 import type { CropRect } from './tools';
+import type { Snapshot } from './controller';
 
 export type StoredRemoval = { variantId: string; label: string; mode: RemovalMode };
 export type StoredSize = { width: number; height: number };
+/** One pooled blob plus the dead object URL it replaces, so a snapshot can be re-enlivened after a reload. */
+export type StoredPoolEntry = { url: string; blob: Blob };
+/** The undo stack that travels with a project: snapshots plus the blob pool their URLs reference. */
+export type StoredHistory = { snapshots: Snapshot[]; cursor: number; pool: StoredPoolEntry[] };
 
 export type StoredProjectData = {
   fileName: string;
@@ -37,6 +42,8 @@ export type StoredProjectData = {
   crop: CropRect;
   scene: SceneSettings;
   backdrop: Backdrop;
+  /** Undo history (most recent snapshots); absent or null on records saved before this existed. */
+  history?: StoredHistory | null;
 };
 
 export type StoredProject = { id: string; name: string; createdAt: number; updatedAt: number; data: StoredProjectData };
@@ -95,5 +102,19 @@ export function isStoredProject(value: unknown): value is StoredProject {
   }
   if (typeof adjustments.flipX !== 'boolean' || typeof adjustments.flipY !== 'boolean') return false;
   if (typeof adjustments.preset !== 'string') return false;
+  const history = data.history;
+  if (history !== null && history !== undefined) {
+    if (!isObject(history) || !Array.isArray(history.snapshots) || !Array.isArray(history.pool) || !isNumber(history.cursor)) return false;
+    if (history.snapshots.length && (history.cursor < 0 || history.cursor >= history.snapshots.length)) return false;
+    for (const entry of history.pool) if (!isObject(entry) || typeof entry.url !== 'string' || !isBlob(entry.blob)) return false;
+    for (const snapshot of history.snapshots) {
+      if (!isObject(snapshot)) return false;
+      if (!isObject(snapshot.canvas) || !isObject(snapshot.layers) || !isObject(snapshot.adjustments) || !isObject(snapshot.scene) || !isObject(snapshot.backdrop)) return false;
+      if (typeof snapshot.comparisonUrl !== 'string' || typeof snapshot.layers.baseUrl !== 'string') return false;
+      if (!isNumber(snapshot.layers.width) || !isNumber(snapshot.layers.height)) return false;
+      if (snapshot.layers.matteUrl !== null && snapshot.layers.matteUrl !== undefined && typeof snapshot.layers.matteUrl !== 'string') return false;
+      if (snapshot.opaque !== null && snapshot.opaque !== undefined && !isObject(snapshot.opaque)) return false;
+    }
+  }
   return true;
 }

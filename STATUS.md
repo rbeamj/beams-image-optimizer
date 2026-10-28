@@ -3,7 +3,7 @@
 Durable record of where the project actually is, so a new session can resume without chat history.
 Update this file at the end of any working session; keep it factual and dated.
 
-**Last verified: 2026-10-27** (v0.2.0 deployed: batch presets, projects, templates, durable queue, one shared export renderer, three Studio bugs fixed; typecheck + 41-check smoke shipped and wired into CI; dev + production QA green).
+**Last verified: 2026-10-28** (v0.2.0: batch presets, projects with undo history, templates, durable queue, one shared export renderer; five Studio bugs fixed; 45-check smoke gates CI; dev + AI QA green).
 
 ## Version and remotes
 
@@ -22,16 +22,17 @@ The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__bat
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 23 files, **216 tests passed** (~0.5 s) |
-| `npm run build` | passes; `dist/` ≈ 390 kB JS + 195 kB ORT worker, gzip 122 kB + 24 kB |
+| `npm test` | 23 files, **220 tests passed** (~0.4 s) |
+| `npm run build` | passes; `dist/` ≈ 399 kB JS + 195 kB ORT worker, gzip 124 kB + 24 kB |
 | `npm run dev` | boots clean; app loads with **no console errors** |
 | Studio UI | all 10 panels present: Cutout, Refine, Cleanup, Enhance, Scene, Light, Color, Transform, Crop, Export |
 | fp16 WebGPU | **verified** 2026-10-27 on Intel UHD 770 (`gen-12lp`, `shader-f16`); Quality 1024 fp16 7.7 s warm, ~1.9× faster than fp32, matte matches fp32 (mean Δ 0.014/255) |
 | Batch Studio presets | **verified** 2026-10-27 in real Chrome over CDP (same iGPU): consent gate, 5 presets, cancel mid-batch, transparency, "My Studio setup", **0 console errors**; parity vs Studio export mean Δ 0.216/255, 0% of pixels over 2/255 (same renderer) |
-| Projects | **verified** 2026-10-27 over CDP with a real fp16 cutout: save → reload → reopen restores matte, removal metadata, scene and look; export **byte-identical** (3,507,939 bytes both sides); smoke covers the no-AI round-trip the same way |
+| Projects | **verified** 2026-10-27 over CDP with a real fp16 cutout: save → reload → reopen restores matte, removal metadata, scene and look; export **byte-identical** (3,507,939 bytes both sides). 2026-10-28: **undo history travels with the project** — undo works right after a reopen, redo is byte-identical |
 | Templates | **verified** 2026-10-27 via `npm run smoke`: save from a tuned photo → apply to a *different* photo (frame, exposure and scene all carried over) → appears in the batch preset list with a working `template:` value |
 | Durable queue | **verified** 2026-10-27 via `npm run smoke`: imports, results and a decode-failed row survive a reload; Retry reprocesses and reports; Clear resets. Immediate writes (no debounce) after the starvation bug was found by the probe harness |
-| `npm run smoke` | **verified** 2026-10-27: **41/41** browser checks in ~8 s (boot, opt-in persistence, quick optimize, 10 panels, mid-decode preset race, overlay single-reference, export purity, adjustments, project round-trip byte-identity, templates, queue persistence/retry/clear, 0 console errors) |
+| Undo correctness | **verified** 2026-10-28: two long-standing bugs fixed — `restore()` never reverted Light/Color/Transform adjustments, and it re-measured the subject from the unsettled restored image (one sampling step smaller — the cause of a parity regression the AI QA suite caught). Parity re-measured at mean Δ 0.216/255, 0 % over 2/255; undo across a real cutout reverts the scene while keeping the matte |
+| `npm run smoke` | **verified** 2026-10-28: **45/45** browser checks in ~10 s (boot, opt-in persistence, quick optimize, 10 panels, mid-decode preset race, overlay single-reference, export purity, adjustments, in-session undo/redo byte-identity, project round-trip + history, templates, queue persistence/retry/clear, 0 console errors) |
 
 ## What is actually built
 
@@ -62,7 +63,9 @@ Light/Color/Transform/Crop work at any step; undo/redo, before-after, zoom/pan, 
 Subject stays layered (photo pixels + matte) so cutout/cleanup/enhance can be redone without losing scene settings.
 Since v0.2.0 the **Projects** section of the Export panel saves that whole layered state (base + matte blobs,
 before/after reference, original file, adjustments, crop, scene, backdrop) into IndexedDB and reopens it exactly
-as saved — verified byte-identical, with and without a cutout. Undo history is not persisted. The **Templates**
+as saved — verified byte-identical, with and without a cutout. Since 2026-10-28 the ten most recent undo
+snapshots travel with the project (with a blob pool for every URL they reference), so undo/redo works
+immediately after a reopen. The **Templates**
 section of the Scene panel saves the current look under a name (scene, backdrop with its image blob, shadow,
 light settings, cutout choice) and applies it to any photo; saved templates also appear in Quick Optimize's
 batch preset list and run across the queue through the same batch pipeline. In Quick Optimize, the queue itself
@@ -82,7 +85,7 @@ Also measured on Intel UHD 770 (`shader-f16`): Quality 1024 fp16 7.9 s total / 7
 | --- | --- |
 | AI opt-in friction | **Cleared 2026-10-27 — the earlier note here was stale**: the opt-in has always persisted per browser via localStorage (`beams-bg-removal-ack-v1`, `beams-enhance-license-ack-v1`, plus the removal-mode choice and per-device planner memory). Reload test: gates stay hidden, keys survive, batch gate stays closed. Guarded by `npm run smoke` |
 | Batch studio edits / templates | **Shipped 2026-10-27 (v0.2.0)** — presets across the queue incl. "My Studio setup" and now saved look templates, headless composition parity-verified against Studio export (mean Δ 0.216/255, 0% of pixels over 2/255). Per-photo editing stays single-image; crops, Magic Click and cleanup edits are not part of a preset or template |
-| Project save/load | **Shipped 2026-10-27 (v0.2.0)** — projects persist in IndexedDB with layers (base + matte), before/after reference, original file, adjustments, crop, scene, backdrop; reopen is byte-identical. Not persisted: undo history |
+| Project save/load | **Shipped 2026-10-27 (v0.2.0)** — projects persist in IndexedDB with layers (base + matte), before/after reference, original file, adjustments, crop, scene, backdrop; reopen is byte-identical. Since 2026-10-28 the 10 most recent undo snapshots persist with the project; older steps start history fresh |
 | Reusable templates | **Shipped 2026-10-27 (v0.2.0)** — named looks (scene, backdrop + image blob, shadow, light settings, cutout choice) saved in IndexedDB, applicable to any photo in Studio or across the queue; image backdrops get a fresh object URL at run time |
 | Batch queue persistence | **Shipped 2026-10-27 (v0.2.0)** — imports, results (with recipe) and failures survive reloads; per-row Retry with the current recipe/preset; Clear resets. Writes are immediate (a debounced write starved under batch bursts and died with the page) |
 | Layers, text, shapes, stickers | Not implemented (deliberately deferred in Tranche 1) |
@@ -149,32 +152,50 @@ is the subject, not the backdrop.
 **Stale doc claim corrected:** the "AI opt-in re-enabled on every page load" gap was wrong — the ack keys were
 already in `localStorage`. Verified by a reload test and now guarded by `npm run smoke`.
 
+## Bugs fixed this session (2026-10-28)
+
+Both surfaced by the new undo checks in the regression suite; the second one also showed up as a parity
+regression in the AI QA suite (mean Δ 4.83/255, studio frame 2048 → 2038 after any undo/redo).
+
+**4 — undo/redo never reverted Light/Color/Transform adjustments.** `restore()` rebuilt the canvas, scene,
+crop and layers, but never applied the snapshot's `adjustments`, then immediately re-applied the *current*
+(un-reverted) values over the restored image — so undoing an exposure change visibly did nothing while
+moving the cursor. Fixed: `restore()` applies `snapshot.adjustments` before `sync()`. Pinned by the smoke
+(in-session and after a project reopen).
+
+**5 — undo/redo re-measured the subject and shrank the frame.** `restore()` called `measureOpaqueBounds()`
+on the just-enlivened fabric image, which read one sampling step smaller than the live-path measurement of
+the same pixels, so any undo/redo silently changed the frame (2048 → 2038 on the test photo). Fixed:
+snapshots now carry their captured `opaqueBounds`; restore never re-measures. Undo restores the exact
+captured layout, and the AI QA parity is back to mean Δ 0.216/255 with 0% of pixels over 2/255.
+
 Batch QA harnesses (not part of the repo): `C:\Temp\opencode\beams-batch\qa.mjs` — full dev-server suite incl. the
-AI-cutout project round-trip; `live.mjs` — production smoke against the deployed site; `diag*.mjs`/`probe*.mjs`/
-`reload.mjs` — the investigations behind the three bugs above. The durable regression suite is `scripts/smoke.mjs`
-in the repo (`npm run smoke`).
+AI-cutout project round-trip, undo across a real cutout, and the re-run-over-done-rows evidence; `live.mjs` —
+production smoke against the deployed site; `diag*.mjs`/`probe*.mjs`/`reload.mjs`/`undo-*.mjs` — the
+investigations behind the bugs above. The durable regression suite is `scripts/smoke.mjs` in the repo
+(`npm run smoke`).
 
 ## How to resume
 
 ```sh
 npm install
-npm test            # 216 unit/logic tests
+npm test            # 220 unit/logic tests
 npm run typecheck   # tsc -b (same check the build runs, without vite)
 npm run build       # production build into dist/
 npm run dev         # http://localhost:5173 — keep it running, then:
-npm run smoke       # 41 browser checks (needs the dev server + a local Chrome; CHROME_PATH overrides)
+npm run smoke       # 45 browser checks (needs the dev server + a local Chrome; CHROME_PATH overrides)
 ```
 
 The smoke suite also runs in CI: the Pages workflow installs Chrome, boots the dev server, and blocks the
-deploy on all 41 checks passing.
+deploy on all 45 checks passing.
 
 Windows PowerShell: use `npm.cmd` if `npm.ps1` is blocked. Dev-only QA hooks: `window.__studio`
-(`layers()`, `src()`, `scene()`, `objects()`, `refilter()`) and `window.__batch` (`rows()`, `file(i)`)
+(`layers()`, `src()`, `scene()`, `history()`, `objects()`, `refilter()`) and `window.__batch` (`rows()`, `file(i)`)
 are available in development builds only.
 
 ## Suggested next steps (not started)
 
-1. Undo history as part of saved projects (a reopen currently starts history fresh).
-2. A queue-level "apply template" that also reprocesses already-done rows in one pass.
-3. Lint/format tooling on top of the existing typecheck + smoke.
-4. Additional marketplace export presets where the framing rules are documented.
+1. Additional marketplace export presets where the framing rules are documented.
+2. Lint/format tooling on top of the existing typecheck + smoke.
+3. Persist more undo history per project (currently capped at ten snapshots) if storage profiling allows.
+4. Batch presets currently re-run the AI cutout for every photo even when a row already has one; reusing the existing matte would make queue re-runs much faster.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isStoredProject, projectMeta, type StoredProject, type StoredProjectData } from '../src/editor/projects';
+import { isStoredProject, projectMeta, type StoredPoolEntry, type StoredProject, type StoredProjectData } from '../src/editor/projects';
+import type { Snapshot } from '../src/editor/controller';
 import { defaultScene } from '../src/editor/scene';
 import { defaultAdjustments } from '../src/editor/looks';
 
@@ -76,6 +77,26 @@ describe('isStoredProject', () => {
     expect(isStoredProject(Object.assign(Object.create(null), project()))).toBe(true);
     expect(isStoredProject('project')).toBe(false);
     expect(isStoredProject(null)).toBe(false);
+  });
+
+  it('accepts an undo history only when its pool, snapshots and cursor are well formed', () => {
+    const snapshot: Snapshot = {
+      canvas: { objects: [{ type: 'image', src: 'blob:composite' }] },
+      adjustments: defaultAdjustments(),
+      crop: { x: 0, y: 0, width: 100, height: 80 },
+      original: { width: 100, height: 80 },
+      comparisonUrl: 'blob:before',
+      scene: defaultScene(),
+      backdrop: { kind: 'color', color: '#ffffff' },
+      layers: { baseUrl: 'blob:base', width: 100, height: 80, matteUrl: 'blob:matte' },
+      opaque: { left: 4, top: 2, width: 90, height: 70 },
+    };
+    const history = { snapshots: [snapshot], cursor: 0, pool: [{ url: 'blob:base', blob: new Blob(['b']) }, { url: 'blob:matte', blob: new Blob(['m']) }, { url: 'blob:before', blob: new Blob(['x']) }, { url: 'blob:composite', blob: new Blob(['c']) }] };
+    expect(isStoredProject(project({ data: data({ history }) }))).toBe(true);
+    expect(isStoredProject(project({ data: data({ history: null }) }))).toBe(true);
+    expect(isStoredProject(project({ data: data({ history: { ...history, cursor: 4 } }) }))).toBe(false);
+    expect(isStoredProject(project({ data: data({ history: { ...history, pool: [{ url: 'blob:base' }] as unknown as StoredPoolEntry[] } }) }))).toBe(false);
+    expect(isStoredProject(project({ data: data({ history: { ...history, snapshots: [{ ...snapshot, comparisonUrl: 7 as unknown as string }] as Snapshot[] } }) }))).toBe(false);
   });
 });
 

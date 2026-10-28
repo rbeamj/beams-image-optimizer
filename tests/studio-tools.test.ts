@@ -33,4 +33,37 @@ describe('studio tool helpers', () => {
     expect(history.current()).toBe(4);
     expect(history.canRedo()).toBe(false);
   });
+  it('exposes the stack for persistence without aliasing the live entries', () => {
+    const history = new SnapshotHistory<number>();
+    history.push(1); history.push(2); history.undo();
+    const stack = history.stack();
+    expect(stack.entries).toEqual([1, 2]);
+    expect(stack.index).toBe(0);
+    stack.entries.push(99);
+    expect(history.current()).toBe(1);
+    expect(history.canRedo()).toBe(true);
+  });
+  it('loads a persisted stack and restores undo/redo from its cursor', () => {
+    const history = new SnapshotHistory<string>();
+    history.load(['bare', 'cut', 'framed'], 2);
+    expect(history.current()).toBe('framed');
+    expect(history.canUndo()).toBe(true);
+    expect(history.undo()).toBe('cut');
+    expect(history.undo()).toBe('bare');
+    expect(history.canUndo()).toBe(false);
+    expect(history.redo()).toBe('cut');
+  });
+  it('clamps an out-of-range cursor and resets on an empty stack', () => {
+    const history = new SnapshotHistory<number>();
+    history.load([7, 8], 99);
+    expect(history.current()).toBe(8);
+    history.load([7, 8], -5);
+    expect(history.current()).toBe(7);
+    expect(history.canUndo()).toBe(false);
+    history.load([], 3);
+    expect(history.current()).toBeUndefined();
+    expect(history.canRedo()).toBe(false);
+    history.push(1);
+    expect(history.current()).toBe(1);
+  });
 });

@@ -9,11 +9,12 @@ Beams Image Optimizer is a free, open-source, browser-local product-image applic
 - Quick Optimize can apply a Studio preset across the whole queue: AI cutout, then frame, backdrop and shadow composition, exported with the shared recipes. Built-ins mirror the Studio scene presets, plus Transparent PNG, plus **My Studio setup** captured from the photo open in Photo Studio.
 - Single-photo Studio exports and batch exports now render through the same headless compositor at native resolution; measured parity is a mean difference of 0.216/255 (resampling only).
 - Fixed three Studio bugs found while verifying that: the before/after comparison overlay could leak the original photo into exports; a scene preset clicked while a photo was still decoding was silently lost; and small photos exported as empty white frames.
-- Added `npm run typecheck` and `npm run smoke`, a 23-check browser regression suite (no extra dependencies) guarding the opt-in persistence, export purity, and the fixes above.
-- Photo Studio **projects**: save the open photo with its cutout, edits, light settings and scene into this browser (IndexedDB), and reopen it later — even after a reload — with the export reproducing byte-for-byte.
+- Fixed two more undo bugs found by the regression suite: **undo/redo never reverted Light/Color/Transform adjustments** (the restored canvas was immediately re-filtered with the un-reverted values), and undo/redo re-measured the subject from the not-yet-settled restored image, silently shrinking the frame by one sampling step. Undo now restores the exact captured layout, byte-for-byte.
+- Added `npm run typecheck` and `npm run smoke`, a browser regression suite (no extra dependencies) guarding the opt-in persistence, export purity, undo fidelity, projects, templates, the queue, and the fixes above.
+- Photo Studio **projects**: save the open photo with its cutout, edits, light settings and scene into this browser (IndexedDB), and reopen it later — even after a reload — with the export reproducing byte-for-byte and the **undo history** (up to 10 recent steps) restored alongside it.
 - Reusable **templates**: save the current look (frame, backdrop, shadow, light settings) under a name, apply it to any photo in Photo Studio, or pick it in Quick Optimize's batch preset list to run it across the whole queue.
 - The Quick Optimize **queue survives reloads**: imports, results and failures are kept in this browser, failed rows get a Retry button, and a Clear button resets the list.
-- The browser smoke suite now runs in CI (GitHub Pages deploys are gated on it) and grew to 41 checks covering all of the above.
+- The browser smoke suite now runs in CI (GitHub Pages deploys are gated on it) and grew to 45 checks covering all of the above.
 
 ## v0.1.2
 

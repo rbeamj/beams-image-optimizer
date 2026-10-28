@@ -162,6 +162,9 @@ const HELPERS = `
       slider.dispatchEvent(new Event('change', { bubbles: true }));
       await window.__s.sleep(400);
     },
+    exposureOutput: () => document.querySelector('#edit-exposure-value').textContent,
+    undo: async () => { document.querySelector('#undo').click(); await window.__s.sleep(450); },
+    redo: async () => { document.querySelector('#redo').click(); await window.__s.sleep(450); },
     exportBytes: async () => {
       const file = await window.__studio.exportFile();
       if (!file) return null;
@@ -384,6 +387,17 @@ async function main() {
     check('adjust: exposure changes the display', displayBefore !== displayAfter, `${displayBefore} vs ${displayAfter}`);
     check('adjust: exposure changes the export', !bytesEqual(withCompare?.bytes, exposed?.bytes) && (exposed?.len ?? 0) > 100, `${withCompare?.len} vs ${exposed?.len} bytes`);
 
+    // 9b — undo/redo restores the exact prior layout (restore() must not re-measure the subject:
+    //      the re-measurement used to shrink the frame by one probe sample after any undo/redo)
+    await cdp.evaluate(`window.__s.undo()`);
+    const undoneExposure = await cdp.evaluate(`window.__s.exposureOutput()`);
+    const undoneFrame = await cdp.evaluate(`window.__s.frame()`);
+    await cdp.evaluate(`window.__s.redo()`);
+    const redoneExposure = await cdp.evaluate(`window.__s.exposureOutput()`);
+    const redone = await cdp.evaluate(`window.__s.exportBytes()`);
+    check('undo: reverts the adjustment', undoneExposure === '0' && !!undoneFrame, `exposure ${undoneExposure}`);
+    check('undo: redo restores it exactly (byte-identical export)', redoneExposure === '+40' && bytesEqual(exposed?.bytes, redone?.bytes), `${exposed?.len} vs ${redone?.len} bytes`);
+
     // 10 — projects: save, survive a reload, reopen, and reproduce the export byte-for-byte
     const savedStatus = await cdp.evaluate(`window.__s.saveProject('smoke-project')`);
     check('project: saved', /Saved/.test(savedStatus ?? ''), savedStatus);
@@ -396,6 +410,16 @@ async function main() {
     check('project: reopen restores photo, look and scene', reopenedState.title === 'smoke-photo.png' && !!reopenedState.frame && reopenedState.exposure === '+40', JSON.stringify(reopenedState));
     const reopened = await cdp.evaluate(`window.__s.exportBytes()`);
     check('project: export byte-identical after reopen', bytesEqual(exposed?.bytes, reopened?.bytes), `${exposed?.len} vs ${reopened?.len} bytes`);
+
+    // 10b — the saved undo history travels with the project: undo after a reopen reverts the look,
+    //       redo restores it byte-for-byte
+    await cdp.evaluate(`window.__s.undo()`);
+    const reopenedUndoExposure = await cdp.evaluate(`window.__s.exposureOutput()`);
+    const reopenedUndoFrame = await cdp.evaluate(`window.__s.frame()`);
+    await cdp.evaluate(`window.__s.redo()`);
+    const reopenedRedo = await cdp.evaluate(`window.__s.exportBytes()`);
+    check('project: undo works after reopen', reopenedUndoExposure === '0' && !!reopenedUndoFrame, `exposure ${reopenedUndoExposure}`);
+    check('project: redo after reopen is byte-identical', bytesEqual(reopened?.bytes, reopenedRedo?.bytes), `${reopened?.len} vs ${reopenedRedo?.len} bytes`);
 
     // 11 — templates: save the current look, apply it to a different photo, offer it to the queue
     const templateSaved = await cdp.evaluate(`window.__s.saveTemplate('smoke-look')`);

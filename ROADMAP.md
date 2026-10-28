@@ -56,24 +56,39 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
   pixels + cutout matte), the before/after reference, the original file, adjustments, crop, scene and
   backdrop. Reopen from the Export panel after any reload; the reopened export is byte-identical to the
   pre-save export (verified both with and without an AI cutout)
+- Undo history travels with a project: the ten most recent snapshots and a blob pool for every URL they
+  reference, so undo/redo works immediately after a reopen (pinned byte-identical by the smoke suite)
 - Templates: save the current look (scene, backdrop, shadow, light settings, cutout choice) under a name;
   apply it to any photo in Photo Studio, or run it across the Quick Optimize queue from the batch preset
-  list. Image backdrops persist with their blob
+  list. Image backdrops persist with their blob. Re-running a preset over the queue reprocesses
+  already-done rows in one pass (verified in the AI QA suite)
 - The Quick Optimize queue survives reloads: imports, results (with their recipe) and failures are kept in
   IndexedDB, failed rows get a Retry button that reprocesses with the current recipe and preset, and a
   Clear button resets the list
-- Every stored record (projects, templates, queue rows) is validated on read, so corrupt or version-skewed
-  rows can never reach the editor; queue writes are immediate because Blob fields are stored as references
-- Undo history is not persisted yet, and templates do not carry crops or per-photo edits (deliberate:
+- Every stored record (projects, templates, queue rows, history stacks) is validated on read, so corrupt or
+  version-skewed rows can never reach the editor; queue writes are immediate because Blob fields are
+  stored as references
+- History beyond ten steps is not persisted, templates do not carry crops or per-photo edits (deliberate:
   a template is a look, not a photo)
+
+### Undo correctness (v0.2.0)
+
+- Undo/redo never reverted Light/Color/Transform adjustments: `restore()` rebuilt the canvas and scene but
+  left the current adjustment values in place, and immediately re-applied them over the restored image.
+  Snapshots now restore the look too
+- Undo/redo also re-measured the subject from the just-restored image, which read one sampling step
+  smaller and silently shrank the frame after any undo/redo (surfaced as a batch/export parity
+  regression). Snapshots now carry their captured layout bounds; restore never re-measures
+- Both are pinned by `npm run smoke` (in-session undo reverts, redo is byte-identical; the same after a
+  project reopen) and by the AI QA suite (undo across a real cutout)
 
 ## Next
 
 Ordered by expected value, not committed for any release:
 
 - Additional marketplace export presets where the framing rules are documented
-- Undo history as part of saved projects (a reopen currently starts history fresh)
-- A queue-level "apply template" that also works on already-processed rows in one pass
+- Lint/format tooling on top of the existing typecheck + smoke
+- Persist more undo history per project (currently capped at ten snapshots) if storage allows
 
 ## Longer term
 

@@ -40,4 +40,12 @@ export class SnapshotHistory<T> {
   canUndo() { return this.index > 0; }
   canRedo() { return this.index >= 0 && this.index < this.entries.length - 1; }
   reset() { this.entries = []; this.index = -1; }
+  /** A copy of the whole stack plus the cursor, for persisting undo history with a saved project. */
+  stack(): { entries: T[]; index: number } { return { entries: this.entries.slice(), index: this.index }; }
+  /** Replaces the whole stack (e.g. when a saved project is reopened); the cursor is clamped into range. */
+  load(entries: T[], index: number) {
+    this.entries = entries.slice();
+    this.index = entries.length ? Math.max(0, Math.min(entries.length - 1, Math.round(index))) : -1;
+    return this.current();
+  }
 }
