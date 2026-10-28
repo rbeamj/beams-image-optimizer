@@ -10,10 +10,10 @@ Update this file at the end of any working session; keep it factual and dated.
 | Item | Value |
 | --- | --- |
 | Version | `0.2.0` (`package.json`) |
-| Local `main` | `56932f0` — *Ship Photo Studio projects: save, reopen, byte-identical (v0.2.0)* |
-| GitHub `main` | `56932f0` (in sync) |
+| Local `main` | `c6ed0f9` — *Ship look templates, a durable queue, and smoke-in-CI (v0.2.0)* |
+| GitHub `main` | `c6ed0f9` (in sync) |
 | Other branches | `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged, safe to delete |
-| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — Pages run **#10, success**, serves `index-BaLbySeI.js` (388.39 kB, gzip 121.88 kB), byte-identical to a fresh local `npm run build`; Projects UI present in the served HTML. Earlier today: live batch smoke on a fresh profile passed with the real HuggingFace model download (21.3 s, 0 console errors) |
+| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — Pages run **#12, success**, serves `index-BGdg8fSk.js` (396.97 kB, gzip 123.81 kB), byte-identical to a fresh local `npm run build`; the run's **smoke job passed in CI** (Chrome install + dev server + all 41 checks on the GitHub runner), and deploy is now gated on it |
 | Open issues / PRs | none |
 
 The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__batch.rows()/file()`, `?ai-fail=`) do not affect the shipped build.
