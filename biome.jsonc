@@ -1,0 +1,35 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"includes": ["**", "!!**/dist", "!!experiments"]
+	},
+	// Lint only. The codebase uses a deliberate dense hand-rolled style, so the formatter stays off
+	// and a wholesale reformat was deliberately not done; correctness rules still apply everywhere.
+	"formatter": {
+		"enabled": false
+	},
+	"assist": {
+		"enabled": false
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			// Non-null assertions are idiomatic throughout this codebase and are covered by the
+			// strict typecheck plus the test suite; flagging all 280 of them drowns real signal.
+			"style": {
+				"noNonNullAssertion": "off"
+			},
+			// Empty catch blocks are an accepted pattern for optional storage / best-effort cleanup;
+			// the surrounding code comments them when non-obvious.
+			"suspicious": {
+				"noEmptyBlockStatements": "off"
+			}
+		}
+	}
+}

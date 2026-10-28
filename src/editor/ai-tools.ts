@@ -106,7 +106,7 @@ export function mountAiTools(host: ToolHost) {
   $('#refine-alt').addEventListener('click', async () => { if (!session?.candidates || refineBusy) return; session.pick++; await showCandidate(); refineStatus(`Showing shape ${session.pick % session.candidates.order.length + 1} of ${session.candidates.order.length}.`); syncRefine(); });
   $('#refine-accept').addEventListener('click', () => void endRefine(true));
   $('#refine-reject').addEventListener('click', () => void endRefine(false));
-  document.querySelectorAll<HTMLInputElement>('input[name="refine-action"]').forEach(input => input.addEventListener('change', () => { if (session?.candidates && !refineBusy) void showCandidate(); }));
+  document.querySelectorAll<HTMLInputElement>('input[name="refine-action"]').forEach(input => { input.addEventListener('change', () => { if (session?.candidates && !refineBusy) void showCandidate(); }); });
 
   // ---- Object cleanup ----
   let mask: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; key: string; painted: boolean } | undefined;

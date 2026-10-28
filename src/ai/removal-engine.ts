@@ -68,8 +68,8 @@ export class RemovalEngine {
 
   constructor(private readonly options: { modelBase?: string; createClient?: () => OrtWorkerClient } = {}) {}
 
-  capabilities() { return (this.caps ??= detectCapabilities()); }
-  installed() { return (this.manifest ??= loadManifest(this.options.modelBase)); }
+  capabilities() { if (this.caps == null) this.caps = detectCapabilities(); return this.caps; }
+  installed() { if (this.manifest == null) this.manifest = loadManifest(this.options.modelBase); return this.manifest; }
 
   async signature() { return deviceSignature(await this.capabilities()); }
 

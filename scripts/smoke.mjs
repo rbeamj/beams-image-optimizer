@@ -277,7 +277,7 @@ const HELPERS = `
       const index = cards.findIndex(card => card.querySelector('strong').textContent === name);
       if (index < 0) return 'row not found';
       cards[index].querySelector('[data-retry]')?.click();
-      return window.__s.waitFor(() => /Reprocessed|broken\.png:/.test(document.querySelector('#status').textContent || '') ? document.querySelector('#status').textContent : null, 30000, 100);
+      return window.__s.waitFor(() => /Reprocessed|broken.png:/.test(document.querySelector('#status').textContent || '') ? document.querySelector('#status').textContent : null, 30000, 100);
     },
     clearQueue: () => { document.querySelector('#clear-queue').click(); return document.querySelector('#status').textContent; },
     queueNames: () => [...document.querySelectorAll('#queue .image-card strong')].map(e => e.textContent),
@@ -364,6 +364,11 @@ async function main() {
     check('quick: output bytes recorded', card.row?.result?.bytes > 0, `${card.row?.result?.bytes} bytes`);
 
     // 4b — combined presets carry their own recipe; per-row actions make A/B comparison possible
+    const comboOptions = await cdp.evaluate(`[...document.querySelectorAll('#batch-preset-select optgroup')].map(g => ({ label: g.label, values: [...g.querySelectorAll('option')].map(o => o.value) }))`);
+    const combos = comboOptions.find(g => /Marketplace combos/.test(g.label));
+    check('preset: marketplace combos grouped with all six options', JSON.stringify(combos?.values) === JSON.stringify(['amazon-white', 'ebay-white', 'shopify-white', 'etsy-white', 'walmart-white', 'transparent-max']), JSON.stringify(comboOptions));
+    const shopifyHint = await cdp.evaluate(`window.__s.selectPreset('shopify-white')`);
+    check('preset: Shopify white 2K bundles its cutout tier and recipe', /Quality 1024 cutout with balanced edges/.test(shopifyHint.hint) && /Exports JPEG · 90% · 2K/.test(shopifyHint.hint), shopifyHint.hint);
     const amazonHint = await cdp.evaluate(`window.__s.selectPreset('amazon-white')`);
     check('preset: Amazon white 2K bundles its cutout tier and recipe', /Quality 1024 cutout with balanced edges/.test(amazonHint.hint) && /Exports JPEG · 90% · 2K/.test(amazonHint.hint) && /overrides the export settings above/.test(amazonHint.hint), amazonHint.hint);
     await cdp.evaluate(`window.__s.selectPreset('none')`);

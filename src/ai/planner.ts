@@ -60,7 +60,7 @@ function isFailedRecently(id: string, profile: DeviceProfile, now: number): bool
 
 function recentSuccess(id: string, profile: DeviceProfile, now: number): VariantRecord | null {
   const rec = profile.variants[id];
-  if (!rec || !rec.ok || !isRecent(rec.at, now, SUCCESS_WINDOW_DAYS)) return null;
+  if (!rec?.ok || !isRecent(rec.at, now, SUCCESS_WINDOW_DAYS)) return null;
   return rec;
 }
 
@@ -71,8 +71,6 @@ export function planRemoval(
   opts?: { now?: number; slowMs?: Record<string, number> },
 ): Plan {
   const now = opts?.now ?? Date.now();
-  const slow1024 = opts?.slowMs?.['birefnet-1024'] ?? DEFAULT_SLOW_1024_MS;
-  const slow512 = opts?.slowMs?.['birefnet-512'] ?? DEFAULT_SLOW_512_MS;
 
   const notes: string[] = [];
   const unavailable: { variantId: string; reason: string }[] = [];
@@ -115,7 +113,7 @@ export function planRemoval(
       if (hasSlowSuccess) {
         for (const id of ids) {
           const rec = profile.variants[id];
-          if (rec && rec.ok && rec.ms != null && rec.ms > slowThreshold) {
+          if (rec?.ok && rec.ms != null && rec.ms > slowThreshold) {
             unavailable.push({ variantId: id, reason: `too slow on this device last time (${rec.ms} ms)` });
           }
         }
@@ -129,7 +127,7 @@ export function planRemoval(
   }
 
   // Auto-mode remembered-success promotion: highest eligible family first.
-  let orderedFamilies = [...chain];
+  const orderedFamilies = [...chain];
   if (mode === 'auto') {
     const highestEligible = chain.find((f) => familyCandidates[f].length > 0);
     if (highestEligible) {

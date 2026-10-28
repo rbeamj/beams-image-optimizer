@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { builtInPreset, BATCH_PRESETS, presetDescription, presetFromLook } from '../src/batch/presets';
+import { builtInPreset, BATCH_PRESETS, cutoutKey, presetDescription, presetFromLook } from '../src/batch/presets';
 import { defaultScene, gradientStops, placeSubject, SCENE_PRESETS } from '../src/editor/scene';
 import { defaultAdjustments, type StudioLook } from '../src/editor/looks';
 
@@ -53,6 +53,19 @@ describe('built-in batch presets', () => {
       expect(BATCH_PRESETS['amazon-white']).toMatchObject({ label: 'Amazon white 2K', mode: 'quality', cleanup: 'balanced', cutout: true, recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 }, scene: { aspect: '1:1' }, backdrop: { kind: 'color', color: '#ffffff' } });
       expect(BATCH_PRESETS['ebay-white']).toMatchObject({ label: 'eBay white 1600', mode: 'quality', cleanup: 'balanced', recipe: { format: 'jpeg', quality: .9, maxEdge: 1600 } });
       expect(BATCH_PRESETS['transparent-max']).toMatchObject({ label: 'Transparent PNG · Max', mode: 'quality', cleanup: 'balanced', backdrop: { kind: 'none' }, recipe: { format: 'png', quality: 1, maxEdge: 2048 } });
+      expect(BATCH_PRESETS['shopify-white']).toMatchObject({ label: 'Shopify white 2K', mode: 'quality', cleanup: 'balanced', recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 }, scene: { aspect: '1:1' }, backdrop: { kind: 'color', color: '#ffffff' } });
+      expect(BATCH_PRESETS['etsy-white']).toMatchObject({ label: 'Etsy white 2K', mode: 'quality', cleanup: 'balanced', recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 } });
+      expect(BATCH_PRESETS['walmart-white']).toMatchObject({ label: 'Walmart white 2K', mode: 'quality', cleanup: 'balanced', recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 } });
+    });
+
+    it('fingerprint cutout settings so stored mattes are only reused when they match', () => {
+      const base = BATCH_PRESETS['amazon-white'];
+      const key = cutoutKey(base, 2178, 1788);
+      expect(cutoutKey(base, 2178, 1788)).toBe(key);
+      expect(cutoutKey({ ...base, mode: 'fast' }, 2178, 1788)).not.toBe(key);
+      expect(cutoutKey({ ...base, cleanup: 'crisp' }, 2178, 1788)).not.toBe(key);
+      expect(cutoutKey({ ...base, refine: !base.refine }, 2178, 1788)).not.toBe(key);
+      expect(cutoutKey(base, 800, 600)).not.toBe(key);
     });
 
     it('keep the subject inside the frame like every other preset', () => {

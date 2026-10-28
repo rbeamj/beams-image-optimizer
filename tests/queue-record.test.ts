@@ -46,6 +46,13 @@ describe('toQueueRecord', () => {
     expect(record.rows[1]).toMatchObject({ fileName: 'other.jpg', error: 'Unable to decode other.jpg.', result: null, preset: null, recipe: null });
     expect(record.rows[2]).toMatchObject({ fileName: 'plain.webp', error: null, result: null, preset: null, recipe: null });
   });
+
+  it('persists the stored cutout matte with its settings fingerprint', () => {
+    const matte = { blob: new Blob(['matte-png']), key: 'quality:balanced:1:2178x1788' };
+    const record = toQueueRecord([{ file: file(), matte }]);
+    expect(record.rows[0]?.matte).toEqual(matte);
+    expect(toQueueRecord([{ file: file() }]).rows[0]?.matte).toBeNull();
+  });
 });
 
 describe('isQueueRecord', () => {
@@ -78,5 +85,13 @@ describe('isQueueRecord', () => {
     expect(isQueueRecord({ ...base, rows: [{ ...base.rows[0]!, recipe: { format: 'webp', quality: 0.82, maxEdge: 2048, label: '2K' } }] })).toBe(true);
     expect(isQueueRecord({ ...base, rows: [{ ...base.rows[0]!, recipe: { format: 'webp', quality: 0.82, maxEdge: 2048 } }] })).toBe(false);
     expect(isQueueRecord({ ...base, rows: [{ ...base.rows[0]!, recipe: { format: 7, quality: 0.82, maxEdge: 2048, label: '2K' } as never }] })).toBe(false);
+  });
+
+  it('accepts stored mattes only when they are a blob plus string key', () => {
+    const base = record();
+    expect(isQueueRecord({ ...base, rows: [{ ...base.rows[0]!, matte: { blob: new Blob(['m']), key: 'quality:balanced:1:2178x1788' } }] })).toBe(true);
+    expect(isQueueRecord({ ...base, rows: [{ ...base.rows[0]!, matte: { blob: 'png', key: 'quality:balanced:1' } }] })).toBe(false);
+    expect(isQueueRecord({ ...base, rows: [{ ...base.rows[0]!, matte: { blob: new Blob(['m']) } }] })).toBe(false);
+    expect(isQueueRecord({ ...base, rows: [{ ...base.rows[0]!, matte: { blob: new Blob(['m']), key: 7 } }] })).toBe(false);
   });
 });

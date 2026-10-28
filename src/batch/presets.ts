@@ -30,7 +30,7 @@ export type BatchPreset = {
   backdropImage?: HTMLImageElement;
 };
 
-export type BuiltInPresetId = 'marketplace' | 'social' | 'banner' | 'catalog' | 'transparent' | 'amazon-white' | 'ebay-white' | 'transparent-max';
+export type BuiltInPresetId = 'marketplace' | 'social' | 'banner' | 'catalog' | 'transparent' | 'amazon-white' | 'ebay-white' | 'shopify-white' | 'etsy-white' | 'walmart-white' | 'transparent-max';
 
 const fromScenePreset = (id: ScenePreset): BatchPreset => {
   const source = SCENE_PRESETS[id];
@@ -73,6 +73,14 @@ export const BATCH_PRESETS: Record<BuiltInPresetId, BatchPreset> = {
   //   (Amazon Seller Central, "Product image guide").
   // eBay — 500px hard minimum on the longest side, ~1600px recommended, white or neutral
   //   background, JPEG best (eBay, "Photo tips").
+  // Shopify — 2048×2048 recommended square for product images (Shopify, "Website image size
+  //   guidelines"); white backdrops complement product photos (Shopify blog guidance).
+  // Etsy — listing photos with at least 2000px width and height recommended for zoom, square
+  //   1:1 most versatile (Etsy Help, "Requirements and best practices for images").
+  // Walmart — main image on pure white RGB(255,255,255), 1500×1500 zoom minimum, 2000×2000
+  //   recommended (Walmart now lists 2200×2200), JPEG under 5 MB (Walmart Marketplace,
+  //   "Item image guidelines"). The 2048 output below meets the zoom minimum and the white rule;
+  //   the 2200px recommendation currently exceeds the app's 2K export ceiling.
   'amazon-white': {
     ...fromScenePreset('marketplace'),
     id: 'amazon-white',
@@ -89,6 +97,30 @@ export const BATCH_PRESETS: Record<BuiltInPresetId, BatchPreset> = {
     cleanup: 'balanced',
     recipe: { format: 'jpeg', quality: .9, maxEdge: 1600 },
   },
+  'shopify-white': {
+    ...fromScenePreset('marketplace'),
+    id: 'shopify-white',
+    label: 'Shopify white 2K',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 },
+  },
+  'etsy-white': {
+    ...fromScenePreset('marketplace'),
+    id: 'etsy-white',
+    label: 'Etsy white 2K',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 },
+  },
+  'walmart-white': {
+    ...fromScenePreset('marketplace'),
+    id: 'walmart-white',
+    label: 'Walmart white 2K',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 },
+  },
   'transparent-max': {
     id: 'transparent-max',
     label: 'Transparent PNG · Max',
@@ -104,7 +136,7 @@ export const BATCH_PRESETS: Record<BuiltInPresetId, BatchPreset> = {
 };
 
 export function builtInPreset(id: string): BatchPreset | undefined {
-  return Object.prototype.hasOwnProperty.call(BATCH_PRESETS, id) ? BATCH_PRESETS[id as BuiltInPresetId] : undefined;
+  return  Object.hasOwn(BATCH_PRESETS, id) ? BATCH_PRESETS[id as BuiltInPresetId] : undefined;
 }
 
 /** Turns the open Studio photo's frame, backdrop, shadow, light settings and cutout choice into a preset. */
@@ -140,6 +172,13 @@ export function templateToPreset(template: StoredTemplate): BatchPreset {
     backdrop: structuredClone(data.backdrop),
     adjustments: { ...data.adjustments },
   };
+}
+
+/** Fingerprint of the cutout settings that produce a matte. A stored matte can be reused only when this
+ *  matches (and the row guarantees it is the same photo). Size is included so a wrong-size reuse fails
+ *  closed rather than corrupting pixels. */
+export function cutoutKey(preset: BatchPreset, width: number, height: number): string {
+  return `${preset.mode}:${preset.cleanup}:${preset.refine ? 1 : 0}:${width}x${height}`;
 }
 
 const backdropLabel = (backdrop: Backdrop) =>

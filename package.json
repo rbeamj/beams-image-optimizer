@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b",
+    "lint": "biome lint .",
     "smoke": "node scripts/smoke.mjs",
     "fetch:model": "node scripts/fetch-realesrgan-model.mjs",
     "fetch:bg-model": "node scripts/fetch-bg-models.mjs",
@@ -19,6 +20,7 @@
     "bench:enhance": "node scripts/benchmark-enhance.mjs"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.6.3",
     "@types/node": "^26.6.5",
     "onnxruntime-node": "^1.30.0",
     "typescript": "^7.0.2",

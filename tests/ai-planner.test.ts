@@ -1,5 +1,5 @@
 // tests/ai-planner.test.ts
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, afterEach } from 'vitest';
 import { detectCapabilities } from '../src/ai/capabilities';
 import { planRemoval, describeMode, eligibility } from '../src/ai/planner';
 import { MODEL_VARIANTS } from '../src/ai/models';
@@ -79,14 +79,6 @@ const LOW_MEMORY_PHONE = {
   cores: 4,
   crossOriginIsolated: false,
   mobile: true,
-};
-
-const UNKNOWN_MEMORY = {
-  webgpu: null,
-  deviceMemoryGB: null,
-  cores: 2,
-  crossOriginIsolated: false,
-  mobile: false,
 };
 
 const emptyProfile: any = { variants: {} };
@@ -175,11 +167,9 @@ describe('eligibility', () => {
   const f16Caps = F16_DESKTOP;
   const nonF16Caps = NON_F16_DESKTOP;
   const noWebGPUCaps = NO_WEBGPU;
-  const mobileCaps = LOW_MEMORY_PHONE;
 
   const birefnet1024Fp16 = MODEL_VARIANTS.find((v) => v.id === 'birefnet-1024-webgpu-fp16')!;
   const birefnet512Fp16 = MODEL_VARIANTS.find((v) => v.id === 'birefnet-512-webgpu-fp16')!;
-  const u2netpWebgpu = MODEL_VARIANTS.find((v) => v.id === 'u2netp-webgpu')!;
 
   it('webgpu null -> message', () => {
     expect(eligibility(birefnet1024Fp16, noWebGPUCaps)).toBe('WebGPU is not available in this browser');
@@ -328,7 +318,6 @@ describe('planRemoval', () => {
   });
 
   it('empty plan gets message', () => {
-    const noCaps: any = { webgpu: null, deviceMemoryGB: null, cores: 2, crossOriginIsolated: false, mobile: false };
     // Make everything ineligible by giving tiny memory to u2netp? u2netp has no memory gate, so force via failed records.
     const profile = {
       variants: {

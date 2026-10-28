@@ -79,6 +79,26 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
 - History beyond ten steps is not persisted, templates do not carry crops or per-photo edits (deliberate:
   a template is a look, not a photo)
 
+### Marketplace presets, matte reuse, and lint (v0.2.x, dev)
+
+- Three more combined marketplace presets with rules verified from each marketplace's own guidance:
+  Shopify white 2K (2048×2048 recommended square, Shopify image-size guidelines), Etsy white 2K (listing
+  photos of at least 2000 px for zoom, Etsy Help), Walmart white 2K (pure white RGB 255 required for the
+  main image, 1500×1500 zoom minimum; Walmart recommends 2200×2200, which currently exceeds the app's 2K
+  export ceiling — recorded as a next step). The marketplace presets are grouped in their own section of
+  the batch preset dropdown
+- Stored-matte reuse: the first cutout of a photo is quantized through the same PNG chain the Studio
+  composites from, stored with the queue row alongside a fingerprint of its cutout settings
+  (mode:cleanup:refine:size), and reused by later runs whose settings match — a queue re-run of the same
+  preset, or a preset comparison on a copied row with identical cutout settings, skips the 8–11 s model
+  run entirely and survives reloads (the matte persists with the queue record). Rows whose cutout
+  settings differ (for example crisp vs balanced edges) still get a fresh, honest cutout, and cards note
+  `cutout reused` when it happened
+- Biome lint (`npm run lint`, MIT/Apache-2.0, no TypeScript peer constraint since the project builds with
+  TypeScript 7): recommended rules with zero errors across src, tests and scripts; non-null assertions
+  stay allowed as the codebase's idiom; a wholesale reformat was deliberately not done and the formatter
+  stays off. `npm run lint` gates the Pages build job
+
 ### Undo correctness (v0.2.0)
 
 - Undo/redo never reverted Light/Color/Transform adjustments: `restore()` rebuilt the canvas and scene but
@@ -94,8 +114,9 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
 
 Ordered by expected value, not committed for any release:
 
-- More marketplace presets (Shopify, Etsy, Walmart…) where the framing rules are documented
-- Lint/format tooling on top of the existing typecheck + smoke
+- Raise the Studio export ceiling above 2K (Walmart's recommended 2200×2200 would then be exact)
+- Per-photo AI tools (Magic Click refinement, Cleanup) in the batch queue, with manual control
+- More marketplace presets where the framing rules are documented
 - Persist more undo history per project (currently capped at ten snapshots) if storage profiling allows
 
 ## Longer term

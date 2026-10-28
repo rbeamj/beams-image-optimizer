@@ -2,7 +2,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   OrtWorkerClient,
-  OrtWorkerError,
   classifyError,
   type TensorPayload,
   type LoadRequest,
@@ -208,7 +207,7 @@ describe('OrtWorkerClient', () => {
     const p1 = client.load(makeLoadRequest());
     const p2 = client.run('s1', { input: makePayload('float32', 1, [1]) }, 5000);
 
-    // @ts-ignore - simulate ErrorEvent
+    // @ts-expect-error the fake worker fires a plain object, not a real ErrorEvent
     worker.onerror?.({ message: 'boom' } as ErrorEvent);
 
     await expect(p1).rejects.toMatchObject({ kind: 'other', message: 'boom' });

@@ -5,7 +5,7 @@
  * never reach the editor.
  */
 import { isStoredProject, projectMeta, type ProjectMeta, type StoredProject } from '../editor/projects';
-import { isStoredTemplate, templateMeta, type StoredTemplate, type TemplateMeta } from '../editor/templates';
+import { isStoredTemplate, type StoredTemplate } from '../editor/templates';
 import { isQueueRecord, type QueueRecord } from './queue';
 
 const DB_NAME = 'beams-studio';

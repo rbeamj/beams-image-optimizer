@@ -1,6 +1,6 @@
 // @ts-nocheck -- the Cache/Response fakes implement only what model-cache.ts uses.
 // tests/ai-cache.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   loadModelBytes,
   isModelCached,
@@ -85,7 +85,7 @@ class FakeCacheStorage {
 }
 
 function fakeFetchFactory(bytesMap: Map<string, ArrayBuffer>, statusMap: Map<string, number> = new Map()) {
-  return async (input: string | Request, init?: RequestInit): Promise<Response> => {
+  return async (input: string | Request, _init?: RequestInit): Promise<Response> => {
     const url = typeof input === 'string' ? input : input.url;
     const status = statusMap.get(url) ?? 200;
     if (status < 200 || status >= 300) {

@@ -117,7 +117,7 @@ export function initEditor() {
   /** Marks workflow steps that have been applied to the current photo. */
   const updateSteps = () => {
     const done: Record<string, boolean> = { background: !!layers.matteUrl, refine: !!layers.refined, cleanup: !!layers.cleaned, enhance: !!layers.enhancedTo, scene: backdrop.kind !== 'none' };
-    document.querySelectorAll<HTMLButtonElement>('[data-panel-tab]').forEach((button) => button.classList.toggle('done', !!done[button.dataset.panelTab!]));
+    document.querySelectorAll<HTMLButtonElement>('[data-panel-tab]').forEach((button) => { button.classList.toggle('done', !!done[button.dataset.panelTab!]); });
   };
   const history = new SnapshotHistory<Snapshot>();
   let restoring = false;
@@ -147,7 +147,7 @@ export function initEditor() {
   };
   const layoutScene = () => { layoutSceneObjects(); syncPreviewOverlay(); syncMaskOverlay(); };
   const layoutSceneObjects = () => {
-    sceneObjects.forEach((obj) => studio.remove(obj));
+    sceneObjects.forEach((obj) => { studio.remove(obj); });
     sceneObjects = [];
     frameBox = undefined;
     if (image) image.shadow = null;
@@ -290,18 +290,10 @@ export function initEditor() {
     const button = document.querySelector<HTMLButtonElement>('#clear-enhance')!;
     button.disabled = original.width === pristine.width && original.height === pristine.height;
   };
-  const canvasUrl = (canvas: HTMLCanvasElement): Promise<string> => new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) return reject(new Error('Canvas encoding failed.'));
-      const url = URL.createObjectURL(blob);
-      generatedUrls.push(url);
-      resolve(url);
-    }, 'image/png');
-  });
   const remember = () => {
     if (restoring || cropFrame || loadingPhoto) return;
     detachFromCanvas(comparisonImage);
-    sceneObjects.forEach((obj) => studio.remove(obj));
+    sceneObjects.forEach((obj) => { studio.remove(obj); });
     detachFromCanvas(maskOverlay);
     if (previewOverlay) { detachFromCanvas(previewOverlay); if (image) image.visible = true; }
     history.push({ canvas: studio.toJSON(), adjustments: { ...adjustments }, crop: { ...crop }, original: { ...original }, comparisonUrl, scene: structuredClone(scene), backdrop: structuredClone(backdrop), layers: { ...layers }, opaque: opaqueBounds ? { ...opaqueBounds } : undefined });
@@ -591,7 +583,7 @@ export function initEditor() {
     // Restore the saved undo history when the record carries one: every pooled blob gets a fresh
     // object URL and the references inside each snapshot are remapped to it. Old records without
     // history start fresh, exactly as before.
-    if (data.history && data.history.snapshots.length) {
+    if (data.history?.snapshots.length) {
       const urlMap = new Map<string, string>(data.history.pool.map(entry => [entry.url, registerUrl(URL.createObjectURL(entry.blob))]));
       const remap = (url: string) => urlMap.get(url) ?? url;
       history.load(data.history.snapshots.map(snapshot => ({
@@ -661,7 +653,7 @@ export function initEditor() {
   document.querySelector<HTMLSelectElement>('#filter-preset')!.addEventListener('change', (event) => { adjustments.preset = (event.target as HTMLSelectElement).value as Adjustments['preset']; commit(); });
   document.querySelector('#backdrop-none')!.addEventListener('click', () => { backdrop = { kind: 'none' }; layoutScene(); remember(); syncSceneControls(); });
   document.querySelector('#apply-backdrop-color')!.addEventListener('click', () => { backdrop = { kind: 'color', color: document.querySelector<HTMLInputElement>('#backdrop-color')!.value }; layoutScene(); remember(); syncSceneControls(); });
-  document.querySelectorAll<HTMLButtonElement>('[data-gradient]').forEach((button) => button.addEventListener('click', () => { backdrop = { kind: 'gradient', stops: gradientStops(button.dataset.gradient as GradientPreset), angle: 90 }; layoutScene(); remember(); syncSceneControls(); }));
+  document.querySelectorAll<HTMLButtonElement>('[data-gradient]').forEach((button) => { button.addEventListener('click', () => { backdrop = { kind: 'gradient', stops: gradientStops(button.dataset.gradient as GradientPreset), angle: 90 }; layoutScene(); remember(); syncSceneControls(); }); });
   document.querySelector('#apply-custom-gradient')!.addEventListener('click', () => {
     const from = document.querySelector<HTMLInputElement>('#gradient-from')!.value;
     const to = document.querySelector<HTMLInputElement>('#gradient-to')!.value;
@@ -825,7 +817,7 @@ export function initEditor() {
   document.querySelector('#fit')!.addEventListener('click', () => { if (image) { layoutScene(); studio.setZoom(1); studio.requestRenderAll(); void updateComparison(); } });
   document.querySelector('#actual')!.addEventListener('click', () => { if (image) { image.set({ scaleX: 1, scaleY: 1 }); studio.requestRenderAll(); void updateComparison(); } });
   document.querySelector('#start-crop')!.addEventListener('click', () => startCrop());
-  document.querySelectorAll<HTMLButtonElement>('[data-crop]').forEach((button) => button.addEventListener('click', () => startCrop(Number(button.dataset.crop))));
+  document.querySelectorAll<HTMLButtonElement>('[data-crop]').forEach((button) => { button.addEventListener('click', () => startCrop(Number(button.dataset.crop))); });
   document.querySelector('#apply-crop')!.addEventListener('click', applyCrop);
   document.querySelector('#cancel-crop')!.addEventListener('click', clearCropFrame);
   document.querySelector('#reset-crop')!.addEventListener('click', resetCrop);
@@ -840,7 +832,7 @@ export function initEditor() {
   document.querySelector('#scene-scale')!.addEventListener('change', () => remember());
   document.querySelector('#scene-rotation')!.addEventListener('input', (event) => { adjustments.rotation = Number((event.target as HTMLInputElement).value); sync(); queuePreview(); });
   document.querySelector('#scene-rotation')!.addEventListener('change', commit);
-  document.querySelectorAll<HTMLButtonElement>('[data-scene-preset]').forEach((button) => button.addEventListener('click', () => {
+  document.querySelectorAll<HTMLButtonElement>('[data-scene-preset]').forEach((button) => { button.addEventListener('click', () => {
     const preset = SCENE_PRESETS[button.dataset.scenePreset as ScenePreset];
     scene = clampScene(structuredClone(preset.scene));
     backdrop = preset.backdrop.kind === 'color' ? { kind: 'color', color: preset.backdrop.color } : { kind: 'gradient', stops: gradientStops(preset.backdrop.preset), angle: 90 };
@@ -848,7 +840,7 @@ export function initEditor() {
     remember();
     syncSceneControls();
     setBackgroundStatus(`${preset.label} applied.${layers.matteUrl ? '' : ' Remove the background first for a clean product shot.'}`);
-  }));
+  }); });
   document.querySelector('#scene-center')!.addEventListener('click', () => { scene = clampScene({ ...scene, offsetX: 0, offsetY: 0 }); syncSceneControls(); layoutScene(); remember(); });
   document.querySelector('#shadow-style')!.addEventListener('change', (event) => { scene = clampScene({ ...scene, shadow: { ...scene.shadow, style: (event.target as HTMLSelectElement).value as ShadowStyle } }); layoutScene(); remember(); syncSceneControls(); });
   document.querySelector('#shadow-opacity')!.addEventListener('input', (event) => { scene = clampScene({ ...scene, shadow: { ...scene.shadow, opacity: Number((event.target as HTMLInputElement).value) } }); document.querySelector<HTMLOutputElement>('#shadow-opacity-value')!.textContent = `${scene.shadow.opacity}%`; layoutScene(); });

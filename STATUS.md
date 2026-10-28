@@ -3,7 +3,7 @@
 Durable record of where the project actually is, so a new session can resume without chat history.
 Update this file at the end of any working session; keep it factual and dated.
 
-**Last verified: 2026-10-28** (dev branch: combined marketplace presets with bundled recipes, per-row A/B comparison actions, undo fixes + project history — all verified; `main` last published at run #15; work waits on `dev` until the user asks to publish).
+**Last verified: 2026-10-28** (dev branch: six marketplace combos with bundled recipes + grouped dropdown, stored-matte reuse making queue re-runs skip the AI cutout, Biome lint — all verified; `main` last published at run #15 / commit `58ea468`… see Branches row; work waits on `dev` until the user asks to publish).
 
 ## Version and remotes
 
@@ -12,8 +12,8 @@ Update this file at the end of any working session; keep it factual and dated.
 | Version | `0.2.0` (`package.json`) |
 | Local `main` | `039ea74` — *Fix two long-standing undo bugs; persist undo history with projects* |
 | GitHub `main` | `039ea74` (in sync) |
-| Branches | **`dev` is the development branch**: work lands and is pushed there to save progress. Merge `dev` → `main` and push `main` to publish — the Pages deploy runs on push to `main` only. As of 2026-10-28, `dev` is 2 commits ahead of `main` (the workflow doc + combined presets and per-row comparison). `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged into main long ago, safe to delete |
-| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — Pages run **#14, success** (build + **smoke 45/45 in CI** + deploy all green), serves `index-TBjCRGZI.js` (398.91 kB, gzip 124.42 kB), byte-identical to a fresh local `npm run build` |
+| Branches | **`dev` is the development branch**: work lands and is pushed there to save progress. Merge `dev` → `main` and push `main` to publish — the Pages deploy runs on push to `main` only. As of 2026-10-28, `dev` is 3 commits ahead of `main` (workflow doc + combined presets/per-row comparison + marketplace group/matte reuse/lint). `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged into main long ago, safe to delete |
+| Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — verified live 2026-10-28: serves `index-TBjCRGZI.js` (398.91 kB, gzip 124.42 kB) from `main` at `6c4d756` (Pages run **#15, success**: build + smoke + deploy green) — i.e. **without the dev-branch work** (combined presets, six marketplace combos, matte reuse, lint) until the user asks to publish |
 | Open issues / PRs | none |
 
 The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__batch.rows()/file()`, `?ai-fail=`) do not affect the shipped build.
@@ -22,8 +22,6 @@ The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__bat
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 24 files, **224 tests passed** (~0.5 s) |
-| `npm run build` | passes; `dist/` ≈ 399 kB JS + 195 kB ORT worker, gzip 124 kB + 24 kB |
 | `npm run dev` | boots clean; app loads with **no console errors** |
 | Studio UI | all 10 panels present: Cutout, Refine, Cleanup, Enhance, Scene, Light, Color, Transform, Crop, Export |
 | fp16 WebGPU | **verified** 2026-10-27 on Intel UHD 770 (`gen-12lp`, `shader-f16`); Quality 1024 fp16 7.7 s warm, ~1.9× faster than fp32, matte matches fp32 (mean Δ 0.014/255) |
@@ -32,8 +30,12 @@ The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__bat
 | Templates | **verified** 2026-10-27 via `npm run smoke`: save from a tuned photo → apply to a *different* photo (frame, exposure and scene all carried over) → appears in the batch preset list with a working `template:` value |
 | Durable queue | **verified** 2026-10-27 via `npm run smoke`: imports, results and a decode-failed row survive a reload; Retry reprocesses and reports; Clear resets. Immediate writes (no debounce) after the starvation bug was found by the probe harness |
 | Undo correctness | **verified** 2026-10-28: two long-standing bugs fixed — `restore()` never reverted Light/Color/Transform adjustments, and it re-measured the subject from the unsettled restored image (one sampling step smaller — the cause of a parity regression the AI QA suite caught). Parity re-measured at mean Δ 0.216/255, 0 % over 2/255; undo across a real cutout reverts the scene while keeping the matte |
-| Combined presets | **verified** 2026-10-28 end-to-end in the AI QA suite: Amazon white 2K produced a 2048×2048 JPEG (117 KB) with the preset's own recipe — Quality 1024 cutout, balanced edges, pure-white square — reported in the status and applied over the shared settings. eBay white 1600 and Transparent PNG · Max share the same machinery; unit tests pin the recipes and hints |
-| `npm run smoke` | **verified** 2026-10-28: **50/50** browser checks in ~11 s (boot, opt-in persistence, quick optimize, combined-preset hint, result thumbnails, Copy/Process/Remove per-row actions, 10 panels, mid-decode preset race, overlay single-reference, export purity, adjustments, in-session undo/redo byte-identity, project round-trip + history, templates, queue persistence/retry/clear, 0 console errors) |
+| Combined presets | **verified** 2026-10-28 end-to-end in the AI QA suite: Amazon white 2K produced a 2048×2048 JPEG (117 KB) with the preset's own recipe — Quality 1024 cutout, balanced edges, pure-white square — reported in the status and applied over the shared settings. eBay white 1600, **Shopify/Etsy/Walmart white 2K** (rules verified from each marketplace's own guidance; Walmart's recommended 2200×2200 currently exceeds the app's 2K export ceiling — recorded in the Roadmap) and Transparent PNG · Max share the same machinery. Marketplace presets are grouped in their own dropdown section; **smoke 52/52** pins the group and a Shopify hint |
+| Stored-matte reuse | **verified** 2026-10-28 in the AI QA suite (same preset re-run over 2 photos): first pass cutouts **13,447 ms + 7,720 ms**, re-run **0 ms** on both rows with `cutout reused` shown and the whole queue re-run in **1.0 s** (224 + 379 ms of app work). The matte is quantized through the same PNG chain the Studio composites from, stored with the queue row + a settings fingerprint (`mode:cleanup:refine:size`), survives reloads via the queue record, and is reused only when the settings match (different edge settings get a fresh, honest cutout). Copied rows inherit the matte so A/B preset comparisons with identical cutout settings cost one cutout total |
+| `npm run lint` | **verified** 2026-10-28: Biome 2.6 (MIT/Apache-2.0 — chosen because the project builds with TypeScript 7, beyond typescript-eslint's peer range) — recommended rules, **0 errors** across src/tests/scripts (`experiments/` archived harnesses excluded; non-null assertions and empty catches allowed as codebase idioms). Gates the Pages build job |
+| `npm test` | 24 files, **227 tests passed** (~0.6 s) |
+| `npm run build` | passes; `dist/` ≈ 403 kB JS + 195 kB ORT worker, gzip 126 kB + 24 kB |
+| `npm run smoke` | **verified** 2026-10-28: **52/52** browser checks in ~9 s (boot, opt-in persistence, quick optimize, marketplace-combo grouping + Shopify hint, combined-preset recipe override, result thumbnails, Copy/Process/Remove per-row actions, 10 panels, mid-decode preset race, overlay single-reference, export purity, adjustments, in-session undo/redo byte-identity, project round-trip + history, templates, queue persistence/retry/clear, 0 console errors) |
 
 ## What is actually built
 
@@ -96,8 +98,8 @@ Also measured on Intel UHD 770 (`shader-f16`): Quality 1024 fp16 7.9 s total / 7
 | fp16 WebGPU paths | **Verified** on Intel UHD 770 — Auto picks Quality 1024 fp16, ~1.9× faster than fp32, output matches fp32. Apple Silicon and AMD `shader-f16` hardware remain unmeasured |
 | Integrated-GPU speed | An iGPU with fp16 is still slower than a discrete GPU: 7.7 s vs 2.1 s model-only for Quality 1024. Expect 4–8 s per cutout on integrated graphics, not sub-second |
 | WASM threading | Single-threaded on static hosting; real threads need COOP/COEP, which GitHub Pages cannot send |
-| Test coverage | 216 unit/logic tests plus `npm run smoke` (41 browser checks over CDP) for the controller, persistence and export surfaces; the smoke runs locally against `npm run dev` + Chrome and **in CI** (the Pages deploy is gated on it) |
-| Tooling | `npm run typecheck` (`tsc -b`) and `npm run smoke` (local + CI) shipped 2026-10-27; lint/format still absent |
+| Test coverage | 227 unit/logic tests plus `npm run smoke` (52 browser checks over CDP) for the controller, persistence, presets, matte reuse and export surfaces; the smoke runs locally against `npm run dev` + Chrome and **in CI** (the Pages deploy is gated on it) |
+| Tooling | `npm run typecheck` (`tsc -b`), `npm run smoke` (local + CI), and `npm run lint` (Biome, zero errors) shipped; a formatter was deliberately not adopted — the codebase keeps its dense hand-rolled style |
 
 ## Licensing posture
 
@@ -180,11 +182,11 @@ investigations behind the bugs above. The durable regression suite is `scripts/s
 
 ```sh
 npm install
-npm test            # 224 unit/logic tests
+npm test            # 227 unit/logic tests
 npm run typecheck   # tsc -b (same check the build runs, without vite)
 npm run build       # production build into dist/
 npm run dev         # http://localhost:5173 — keep it running, then:
-npm run smoke       # 50 browser checks (needs the dev server + a local Chrome; CHROME_PATH overrides)
+npm run smoke       # 52 browser checks (needs the dev server + a local Chrome; CHROME_PATH overrides)
 ```
 
 The smoke suite also runs in CI: the Pages workflow installs Chrome, boots the dev server, and blocks the

@@ -28,6 +28,8 @@ export type QueuedRowRecord = {
   preset?: string | null;
   /** Export recipe that produced the stored result, so the row can render it again after a restore. */
   recipe?: QueuedRecipe | null;
+  /** Quantized cutout matte PNG plus its settings fingerprint, so re-runs skip the AI model. */
+  matte?: { blob: Blob; key: string } | null;
   error?: string | null;
   result?: QueuedResult | null;
 };
@@ -52,7 +54,7 @@ export function queuedResult(result: ImageResult): QueuedResult {
 }
 
 /** Maps UI rows (file + optional outcome) onto the persistable record. */
-export function toQueueRecord(rows: { file: File; preset?: string; error?: string; result?: ImageResult; recipe?: QueuedRecipe }[]): QueueRecord {
+export function toQueueRecord(rows: { file: File; preset?: string; error?: string; result?: ImageResult; recipe?: QueuedRecipe; matte?: { blob: Blob; key: string } }[]): QueueRecord {
   return {
     id: QUEUE_RECORD_ID,
     rows: rows.map(row => ({
@@ -61,6 +63,7 @@ export function toQueueRecord(rows: { file: File; preset?: string; error?: strin
       fileType: row.file.type,
       preset: row.preset ?? null,
       recipe: row.recipe ? { ...row.recipe } : null,
+      matte: row.matte ? { ...row.matte } : null,
       error: row.error ?? null,
       result: row.result ? queuedResult(row.result) : null,
     })),
@@ -92,6 +95,10 @@ export function isQueueRecord(value: unknown): value is QueueRecord {
     if (recipe !== null && recipe !== undefined) {
       if (!isObject(recipe) || typeof recipe.format !== 'string' || typeof recipe.label !== 'string') return false;
       if (!isNumber(recipe.quality) || !isNumber(recipe.maxEdge)) return false;
+    }
+    const matte = row.matte;
+    if (matte !== null && matte !== undefined) {
+      if (!isObject(matte) || !isBlob(matte.blob) || typeof matte.key !== 'string') return false;
     }
   }
   return true;
