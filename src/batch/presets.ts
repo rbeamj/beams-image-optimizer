@@ -77,10 +77,10 @@ export const BATCH_PRESETS: Record<BuiltInPresetId, BatchPreset> = {
   //   guidelines"); white backdrops complement product photos (Shopify blog guidance).
   // Etsy — listing photos with at least 2000px width and height recommended for zoom, square
   //   1:1 most versatile (Etsy Help, "Requirements and best practices for images").
-  // Walmart — main image on pure white RGB(255,255,255), 1500×1500 zoom minimum, 2000×2000
-  //   recommended (Walmart now lists 2200×2200), JPEG under 5 MB (Walmart Marketplace,
-  //   "Item image guidelines"). The 2048 output below meets the zoom minimum and the white rule;
-  //   the 2200px recommendation currently exceeds the app's 2K export ceiling.
+  // Walmart — main image on pure white RGB(255,255,255), 1500×1500 zoom minimum,
+  //   2200×2200 recommended, JPEG under 5 MB (Walmart Marketplace,
+  //   "Item image guidelines"). This preset ships exactly at the 2200px recommendation;
+  //   the Studio export ceiling is 2200 to match it.
   'amazon-white': {
     ...fromScenePreset('marketplace'),
     id: 'amazon-white',
@@ -116,10 +116,10 @@ export const BATCH_PRESETS: Record<BuiltInPresetId, BatchPreset> = {
   'walmart-white': {
     ...fromScenePreset('marketplace'),
     id: 'walmart-white',
-    label: 'Walmart white 2K',
+    label: 'Walmart white 2200',
     mode: 'quality',
     cleanup: 'balanced',
-    recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 },
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 2200 },
   },
   'transparent-max': {
     id: 'transparent-max',

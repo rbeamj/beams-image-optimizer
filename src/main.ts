@@ -86,7 +86,7 @@ async function restoreQueue() {
   rows.forEach(row => { if (row.result) refreshResultThumb(row); });
   status.textContent = `Queue restored from this browser: ${rows.length} image${rows.length === 1 ? '' : 's'}, outcomes preserved. Originals are never modified.`;
 }
-async function exportEdited() { if (editor.pendingPreview()) { status.textContent = 'Accept or reject the AI preview before exporting.'; return; } const edited = await editor.exportFile(); if (!edited) { status.textContent = 'Choose an image to export first.'; return; } exportImage.disabled = true; const activeRecipe = recipe(); const maxEdge = studioEdge(activeRecipe.maxEdge); try { const result = await optimizeImage(edited, { format: activeRecipe.format, quality: activeRecipe.quality, maxEdge }); download(result.blob, result.filename); status.textContent = `Exported ${result.filename}: ${result.width}×${result.height} · ${bytes(result.outputBytes)} with ${activeRecipe.format.toUpperCase()} · ${Math.round(activeRecipe.quality * 100)}% · ${maxEdge !== activeRecipe.maxEdge ? `2K (Studio limit)` : activeRecipe.label}.`; } catch { status.textContent = 'The edited image could not be exported.'; } finally { exportImage.disabled = false; } }
+async function exportEdited() { if (editor.pendingPreview()) { status.textContent = 'Accept or reject the AI preview before exporting.'; return; } const edited = await editor.exportFile(); if (!edited) { status.textContent = 'Choose an image to export first.'; return; } exportImage.disabled = true; const activeRecipe = recipe(); const maxEdge = studioEdge(activeRecipe.maxEdge); try { const result = await optimizeImage(edited, { format: activeRecipe.format, quality: activeRecipe.quality, maxEdge }); download(result.blob, result.filename); status.textContent = `Exported ${result.filename}: ${result.width}×${result.height} · ${bytes(result.outputBytes)} with ${activeRecipe.format.toUpperCase()} · ${Math.round(activeRecipe.quality * 100)}% · ${maxEdge !== activeRecipe.maxEdge ? `2200 (Studio limit)` : activeRecipe.label}.`; } catch { status.textContent = 'The edited image could not be exported.'; } finally { exportImage.disabled = false; } }
 function selectedPreset(): BatchPreset | undefined {
   const value = presetSelect.value;
   if (value === 'none') return undefined;
@@ -126,7 +126,7 @@ async function runPresetBatch(preset: BatchPreset, activeRecipe: Recipe, signal:
   const seconds = ((performance.now() - started) / 1000).toFixed(1);
   status.textContent = signal.aborted
     ? `${preset.label}: cancelled after ${done} of ${rows.length}. Finished images are ready below.`
-    : `Batch complete with ${preset.label}: ${done} of ${rows.length} exported · ${runRecipe.format.toUpperCase()} · ${Math.round(runRecipe.quality * 100)}% · ${edge !== runRecipe.maxEdge ? '2K (Studio limit)' : runRecipe.label} · ${seconds} s. Original files are untouched.`;
+    : `Batch complete with ${preset.label}: ${done} of ${rows.length} exported · ${runRecipe.format.toUpperCase()} · ${Math.round(runRecipe.quality * 100)}% · ${edge !== runRecipe.maxEdge ? '2200 (Studio limit)' : runRecipe.label} · ${seconds} s. Original files are untouched.`;
 }
 async function run() {
   if (controller) return;

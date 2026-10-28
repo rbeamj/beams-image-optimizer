@@ -13,7 +13,7 @@ Beams Image Optimizer is a free, open-source, browser-local product-image applic
 - Added `npm run typecheck` and `npm run smoke`, a browser regression suite (no extra dependencies) guarding the opt-in persistence, export purity, undo fidelity, projects, templates, the queue, and the fixes above.
 - Photo Studio **projects**: save the open photo with its cutout, edits, light settings and scene into this browser (IndexedDB), and reopen it later — even after a reload — with the export reproducing byte-for-byte and the **undo history** (up to 10 recent steps) restored alongside it.
 - Reusable **templates**: save the current look (frame, backdrop, shadow, light settings) under a name, apply it to any photo in Photo Studio, or pick it in Quick Optimize's batch preset list to run it across the whole queue.
-- **Combined presets**: Amazon white 2K, eBay white 1600, Shopify white 2K, Etsy white 2K, Walmart white 2K, and Transparent PNG · Max — each bundles its own export recipe and overrides the shared export settings, with the framing rules documented from each marketplace's own guidance (Amazon Seller Central, eBay, Shopify, Etsy Help, Walmart Marketplace).
+- **Combined presets**: Amazon white 2K, eBay white 1600, Shopify white 2K, Etsy white 2K, Walmart white 2200, and Transparent PNG · Max — each bundles its own export recipe and overrides the shared export settings, with the framing rules documented from each marketplace's own guidance (Amazon Seller Central, eBay, Shopify, Etsy Help, Walmart Marketplace).
 - **Per-row comparison in the queue**: Copy a photo, Process or Reprocess each copy with a different preset, compare the processed thumbnails right in the cards, and Remove the loser. Card thumbnails show the processed result, not the input.
 - **Stored-matte reuse**: once a photo has been cut out, later runs with the same cutout settings skip the AI model entirely (the matte is stored with the queue row and survives reloads), so re-runs and preset comparisons on copies finish in seconds instead of minutes.
 - The Quick Optimize **queue survives reloads**: imports, results and failures are kept in this browser, failed rows get a Retry button, and a Clear button resets the list.
@@ -38,7 +38,7 @@ Image decoding, resizing, and encoding happen in your browser using standard bro
 - Adjustable output quality and Smallest File, Balanced, High Quality, Product Photo 1K, and Custom recipes
 - PNG/WebP transparency preservation where the browser encoder supports it; JPEG composites transparent pixels onto white
 - Batch queue, cancellation at safe processing boundaries, individual downloads, and download-all
-- Optional batch Studio preset: cut every photo out and place it on a backdrop — Marketplace white 1:1, Social 4:5, Banner 16:9, Catalog 4:3, Transparent PNG, the marketplace combos (Amazon white 2K, eBay white 1600, Shopify white 2K, Etsy white 2K, Walmart white 2K, Transparent PNG · Max), or the setup of the photo currently open in Photo Studio. Combined presets bring their own export recipe; any row can be copied, processed and removed to compare two presets side by side, and re-runs reuse the stored cutout matte when the cutout settings match
+- Optional batch Studio preset: cut every photo out and place it on a backdrop — Marketplace white 1:1, Social 4:5, Banner 16:9, Catalog 4:3, Transparent PNG, the marketplace combos (Amazon white 2K, eBay white 1600, Shopify white 2K, Etsy white 2K, Walmart white 2200, Transparent PNG · Max), or the setup of the photo currently open in Photo Studio. Combined presets bring their own export recipe; any row can be copied, processed and removed to compare two presets side by side, and re-runs reuse the stored cutout matte when the cutout settings match
 - Before/after previews, byte statistics, and the actual recipe retained for each processed image
 - Saved projects in Photo Studio: reopen a photo with its cutout, edits and scene after any reload (browser-local IndexedDB, nothing leaves the browser)
 - Reusable look templates: named frame/backdrop/shadow/light looks, applicable to any photo or the whole queue
@@ -54,7 +54,7 @@ Photo Studio is a browser-local, non-destructive product-photo editor. Work thro
 3. **Cleanup** – paint over a blemish, label or object and press Remove; MI-GAN fills it. Only painted pixels change. Accept or Reject, and repeat as often as needed.
 4. **Enhance** – optional Real-ESRGAN upscale of small photos to 1024 or 2048 px, with a before/after against a standard resize.
 5. **Scene** – transparent, solid, gradient or uploaded backgrounds; marketplace/social/banner/catalog presets; frame ratio, padding, position, subject size and rotation; ground-contact or drop shadows.
-6. **Export** – the shared format/quality recipes, capped at 2048 px for Studio exports. Exports render headlessly at native resolution from the same scene as the preview.
+6. **Export** – the shared format/quality recipes, capped at 2200 px (Walmart's recommended square) for Studio exports. Exports render headlessly at native resolution from the same scene as the preview.
 
 The same scene, backdrop, shadow and light settings can be captured as **My Studio setup** and applied to the whole Quick Optimize queue.
 

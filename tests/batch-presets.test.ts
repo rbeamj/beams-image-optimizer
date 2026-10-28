@@ -55,7 +55,7 @@ describe('built-in batch presets', () => {
       expect(BATCH_PRESETS['transparent-max']).toMatchObject({ label: 'Transparent PNG · Max', mode: 'quality', cleanup: 'balanced', backdrop: { kind: 'none' }, recipe: { format: 'png', quality: 1, maxEdge: 2048 } });
       expect(BATCH_PRESETS['shopify-white']).toMatchObject({ label: 'Shopify white 2K', mode: 'quality', cleanup: 'balanced', recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 }, scene: { aspect: '1:1' }, backdrop: { kind: 'color', color: '#ffffff' } });
       expect(BATCH_PRESETS['etsy-white']).toMatchObject({ label: 'Etsy white 2K', mode: 'quality', cleanup: 'balanced', recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 } });
-      expect(BATCH_PRESETS['walmart-white']).toMatchObject({ label: 'Walmart white 2K', mode: 'quality', cleanup: 'balanced', recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 } });
+      expect(BATCH_PRESETS['walmart-white']).toMatchObject({ label: 'Walmart white 2200', mode: 'quality', cleanup: 'balanced', recipe: { format: 'jpeg', quality: .9, maxEdge: 2200 } });
     });
 
     it('fingerprint cutout settings so stored mattes are only reused when they match', () => {

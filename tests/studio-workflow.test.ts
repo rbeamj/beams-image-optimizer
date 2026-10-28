@@ -3,11 +3,12 @@ import { STUDIO_MAX_EDGE, studioEdge } from '../src/editor/tools';
 import { clampScene, placeSubject, SCENE_PRESETS } from '../src/editor/scene';
 
 describe('studio export ceiling', () => {
-  it('caps Original and larger recipes at 2K and leaves smaller ones alone', () => {
-    expect(STUDIO_MAX_EDGE).toBe(2048);
-    expect(studioEdge(0)).toBe(2048);
-    expect(studioEdge(4096)).toBe(2048);
-    expect(studioEdge(3072)).toBe(2048);
+  it('caps Original and larger recipes at 2200 and leaves smaller ones alone', () => {
+    expect(STUDIO_MAX_EDGE).toBe(2200);
+    expect(studioEdge(0)).toBe(2200);
+    expect(studioEdge(4096)).toBe(2200);
+    expect(studioEdge(3072)).toBe(2200);
+    expect(studioEdge(2200)).toBe(2200);
     expect(studioEdge(2048)).toBe(2048);
     expect(studioEdge(1200)).toBe(1200);
   });

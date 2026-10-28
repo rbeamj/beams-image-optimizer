@@ -83,9 +83,9 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
 
 - Three more combined marketplace presets with rules verified from each marketplace's own guidance:
   Shopify white 2K (2048×2048 recommended square, Shopify image-size guidelines), Etsy white 2K (listing
-  photos of at least 2000 px for zoom, Etsy Help), Walmart white 2K (pure white RGB 255 required for the
-  main image, 1500×1500 zoom minimum; Walmart recommends 2200×2200, which currently exceeds the app's 2K
-  export ceiling — recorded as a next step). The marketplace presets are grouped in their own section of
+  photos of at least 2000 px for zoom, Etsy Help), Walmart white 2200 (pure white RGB 255 required for the
+  main image, 1500×1500 zoom minimum; ships exactly at Walmart's recommended 2200×2200 — the Studio export
+  ceiling was raised to 2200 to match it). The marketplace presets are grouped in their own section of
   the batch preset dropdown
 - Stored-matte reuse: the first cutout of a photo is quantized through the same PNG chain the Studio
   composites from, stored with the queue row alongside a fingerprint of its cutout settings
@@ -114,7 +114,6 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
 
 Ordered by expected value, not committed for any release:
 
-- Raise the Studio export ceiling above 2K (Walmart's recommended 2200×2200 would then be exact)
 - Per-photo AI tools (Magic Click refinement, Cleanup) in the batch queue, with manual control
 - More marketplace presets where the framing rules are documented
 - Persist more undo history per project (currently capped at ten snapshots) if storage profiling allows
