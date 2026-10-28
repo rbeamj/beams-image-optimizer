@@ -8,6 +8,9 @@
 //     fabric's bringObjectToFront() re-adds removed objects and used to duplicate it)
 //   - Studio exports must not contain the comparison overlay (byte-identical with compare on/off)
 //   - adjustments must reach the export through the shared filter chain
+//   - Studio projects must survive a reload and reopen byte-identically
+//   - look templates must save, apply to a different photo, and appear in the batch preset list
+//   - the Quick Optimize queue must survive reloads with outcomes intact, and failed rows must retry
 // plus the basics: boot without console errors, Quick Optimize end to end, all Studio panels,
 // scene preset layout, and the batch preset gate.
 //
@@ -200,6 +203,80 @@ const HELPERS = `
         frame: !!window.__studio.frame(),
       };
     },
+    saveTemplate: (name) => {
+      document.querySelector('#template-name').value = name;
+      document.querySelector('#save-template').click();
+      return window.__s.waitFor(() => {
+        const t = document.querySelector('#status').textContent || '';
+        return /Saved template|could not be saved/.test(t) ? t : null;
+      }, 20000);
+    },
+    templateRows: () => [...document.querySelectorAll('#template-list li')].map(li => ({
+      name: li.querySelector('strong')?.textContent ?? '',
+      hasApply: !!li.querySelector('[data-apply-template]'),
+      hasDelete: !!li.querySelector('[data-delete-template]'),
+    })),
+    applyTemplateToFreshPhoto: async (index, size) => {
+      const c = document.createElement('canvas'); c.width = size; c.height = size;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#2c3e50'; ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(size / 2, size / 2, size * 0.3, 0, Math.PI * 2); ctx.fill();
+      const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+      const dt = new DataTransfer();
+      dt.items.add(new File([blob], 'fresh-48.png', { type: 'image/png' }));
+      const input = document.querySelector('#file-input');
+      input.files = dt.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      const state = () => ({ title: document.querySelector('#editor-file').textContent, frame: !!window.__studio.frame(), exposure: document.querySelector('#edit-exposure-value').textContent, scene: window.__studio.scene(), status: document.querySelector('#status').textContent, cards: [...document.querySelectorAll('#queue .image-card strong')].map(e => e.textContent), rows: window.__batch.rows().map(r => r.name) });
+      try {
+        await window.__s.waitFor(() => [...document.querySelectorAll('#queue .image-card strong')].some(e => e.textContent === 'fresh-48.png'), 30000);
+      } catch (error) {
+        return { failed: true, stage: 'add', reason: String(error), at: state() };
+      }
+      [...document.querySelectorAll('#queue .image-card [data-edit]')].pop().click();
+      try {
+        await window.__s.waitFor(() => document.querySelector('#editor-file').textContent === 'fresh-48.png', 30000);
+      } catch (error) {
+        return { failed: true, stage: 'edit', reason: String(error), at: state() };
+      }
+      document.querySelectorAll('#template-list [data-apply-template]')[index]?.click();
+      try {
+        await window.__s.waitFor(() => typeof window.__studio.frame() === 'object' && document.querySelector('#edit-exposure-value').textContent === '+40', 20000);
+      } catch (error) {
+        return { failed: true, stage: 'apply', reason: String(error), at: state() };
+      }
+      return { failed: false, ...state() };
+    },
+    templateBatchOption: () => document.querySelector('#template-options option[value^="template:"]')?.value ?? null,
+    queueCards: () => [...document.querySelectorAll('#queue .image-card')].map(card => ({
+      name: card.querySelector('strong').textContent,
+      done: card.classList.contains('done'),
+      download: !!card.querySelector('[data-download]'),
+      retry: !!card.querySelector('[data-retry]'),
+      error: card.classList.contains('done') ? null : card.querySelector('small').textContent,
+    })),
+    addQueuePhotos: async () => {
+      const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#16a085'; ctx.fillRect(0, 0, 64, 64);
+      const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+      const dt = new DataTransfer();
+      dt.items.add(new File([blob], 'good-64.png', { type: 'image/png' }));
+      dt.items.add(new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0])], 'broken.png', { type: 'image/png' }));
+      const input = document.querySelector('#file-input');
+      input.files = dt.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      await window.__s.waitFor(() => [...document.querySelectorAll('#queue .image-card strong')].some(e => e.textContent === 'broken.png'), 30000);
+      return { names: [...document.querySelectorAll('#queue .image-card strong')].map(e => e.textContent) };
+    },
+    retryRow: async (name) => {
+      const cards = [...document.querySelectorAll('#queue .image-card')];
+      const index = cards.findIndex(card => card.querySelector('strong').textContent === name);
+      if (index < 0) return 'row not found';
+      cards[index].querySelector('[data-retry]')?.click();
+      return window.__s.waitFor(() => /Reprocessed|broken\.png:/.test(document.querySelector('#status').textContent || '') ? document.querySelector('#status').textContent : null, 30000, 100);
+    },
+    clearQueue: () => { document.querySelector('#clear-queue').click(); return document.querySelector('#status').textContent; },
   };
   'smoke-helpers-ready'
 `;
@@ -216,7 +293,9 @@ async function main() {
   const chrome = spawn(CHROME, [
     `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`, '--headless=new',
     '--no-first-run', '--no-default-browser-check', '--disable-sync', '--disable-extensions',
-    '--disable-background-networking', '--mute-audio', 'about:blank',
+    '--disable-background-networking', '--mute-audio',
+    ...(process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : []),
+    'about:blank',
   ], { stdio: 'ignore' });
   let cdp;
   try {
@@ -317,6 +396,47 @@ async function main() {
     check('project: reopen restores photo, look and scene', reopenedState.title === 'smoke-photo.png' && !!reopenedState.frame && reopenedState.exposure === '+40', JSON.stringify(reopenedState));
     const reopened = await cdp.evaluate(`window.__s.exportBytes()`);
     check('project: export byte-identical after reopen', bytesEqual(exposed?.bytes, reopened?.bytes), `${exposed?.len} vs ${reopened?.len} bytes`);
+
+    // 11 — templates: save the current look, apply it to a different photo, offer it to the queue
+    const templateSaved = await cdp.evaluate(`window.__s.saveTemplate('smoke-look')`);
+    check('template: saved', /Saved template/.test(templateSaved ?? ''), templateSaved);
+    const templateRows = await cdp.evaluate(`window.__s.templateRows()`);
+    check('template: listed with apply/delete', templateRows.length === 1 && templateRows[0].name === 'smoke-look' && templateRows[0].hasApply && templateRows[0].hasDelete, JSON.stringify(templateRows));
+    const applied = await cdp.evaluate(`window.__s.applyTemplateToFreshPhoto(0, 48)`);
+    check('template: applies to another photo', applied.title === 'fresh-48.png' && !!applied.frame && applied.exposure === '+40', JSON.stringify(applied));
+    const batchOption = await cdp.evaluate(`window.__s.templateBatchOption()`);
+    check('template: appears in the batch preset list', typeof batchOption === 'string' && batchOption.startsWith('template:'), String(batchOption));
+
+    // 12 — the queue itself survives reloads, keeps outcomes, and failed rows can retry
+    const added = await cdp.evaluate(`window.__s.addQueuePhotos()`);
+    check('queue: good and broken photos added', added.names.includes('good-64.png') && added.names.includes('broken.png'), JSON.stringify(added.names));
+    const runStatus = await cdp.evaluate(`window.__s.processQueue()`);
+    check('queue: batch completes', /Batch complete/.test(runStatus), runStatus);
+    let cards = await cdp.evaluate(`window.__s.queueCards()`);
+    const good = cards.find(c => c.name === 'good-64.png');
+    const broken = cards.find(c => c.name === 'broken.png');
+    check('queue: good row processed', !!good?.done, good?.error ?? good?.name);
+    check('queue: broken row failed with a retry button', !broken?.done && !!broken?.retry && /decode|could not/i.test(broken?.error ?? ''), JSON.stringify(broken));
+    const retried = await cdp.evaluate(`window.__s.retryRow('broken.png')`);
+    cards = await cdp.evaluate(`window.__s.queueCards()`);
+    const brokenAfterRetry = cards.find(c => c.name === 'broken.png');
+    check('queue: retry runs and reports the failure again', /broken\.png/.test(retried ?? '') && !!brokenAfterRetry?.retry, `${retried} | ${brokenAfterRetry?.error}`);
+    await prep();
+    const restoreState = await cdp.evaluate(`(async () => {
+      for (let i = 0; i < 200; i++) {
+        if (document.querySelectorAll('#queue .image-card').length >= 3) return { ok: true, status: document.querySelector('#status').textContent };
+        await new Promise(r => setTimeout(r, 100));
+      }
+      return { ok: false, status: document.querySelector('#status').textContent, rows: window.__batch.rows().map(r => r.name), cards: [...document.querySelectorAll('#queue .image-card strong')].map(e => e.textContent) };
+    })()`);
+    check('queue: restored after reload', restoreState.ok, JSON.stringify(restoreState));
+    const restored = await cdp.evaluate(`window.__s.queueCards()`);
+    const restoredGood = restored.find(c => c.name === 'good-64.png');
+    const restoredBroken = restored.find(c => c.name === 'broken.png');
+    check('queue: restored after reload', restored.length >= 3 && !!restoredGood && !!restoredBroken, restored.map(c => c.name).join(','));
+    check('queue: outcomes preserved on restore', !!restoredGood?.done && !!restoredGood?.download && !!restoredBroken?.retry, JSON.stringify({ good: restoredGood, broken: restoredBroken }));
+    const cleared = await cdp.evaluate(`window.__s.clearQueue()`);
+    check('queue: cleared', (await cdp.evaluate(`window.__s.queueCards()`)).length === 0, String(cleared));
 
     // 10 — console
     check('console: no errors across the whole run', cdp.consoleErrors.length === 0, cdp.consoleErrors.slice(0, 3).join(' | '));

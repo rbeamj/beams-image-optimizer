@@ -7,6 +7,7 @@ import type { RemovalMode } from '../ai/planner';
 import type { EdgeCleanup } from '../bgremove';
 import { clampScene, defaultScene, gradientStops, SCENE_PRESETS, type SceneSettings } from '../editor/scene';
 import { defaultAdjustments, type Adjustments, type Backdrop, type StudioLook } from '../editor/looks';
+import type { StoredTemplate } from '../editor/templates';
 
 export type BatchPreset = {
   id: string;
@@ -78,6 +79,25 @@ export function presetFromLook(look: StudioLook, label = 'My Studio setup'): Bat
     backdrop: structuredClone(look.backdrop),
     adjustments: { ...look.adjustments },
     backdropImage: look.backdropImage,
+  };
+}
+
+/**
+ * A saved template as a batch preset. The backdrop of an image template must be given a fresh object URL
+ * by the caller (the saved one is dead after a reload) so the batch runner can decode it.
+ */
+export function templateToPreset(template: StoredTemplate): BatchPreset {
+  const data = template.data;
+  return {
+    id: 'template',
+    label: template.name,
+    cutout: true,
+    mode: data.cutout.mode as RemovalMode,
+    cleanup: data.cutout.cleanup as EdgeCleanup,
+    refine: data.cutout.refine,
+    scene: clampScene(structuredClone(data.scene)),
+    backdrop: structuredClone(data.backdrop),
+    adjustments: { ...data.adjustments },
   };
 }
 

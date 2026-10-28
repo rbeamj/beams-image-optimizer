@@ -11,6 +11,9 @@ Beams Image Optimizer is a free, open-source, browser-local product-image applic
 - Fixed three Studio bugs found while verifying that: the before/after comparison overlay could leak the original photo into exports; a scene preset clicked while a photo was still decoding was silently lost; and small photos exported as empty white frames.
 - Added `npm run typecheck` and `npm run smoke`, a 23-check browser regression suite (no extra dependencies) guarding the opt-in persistence, export purity, and the fixes above.
 - Photo Studio **projects**: save the open photo with its cutout, edits, light settings and scene into this browser (IndexedDB), and reopen it later — even after a reload — with the export reproducing byte-for-byte.
+- Reusable **templates**: save the current look (frame, backdrop, shadow, light settings) under a name, apply it to any photo in Photo Studio, or pick it in Quick Optimize's batch preset list to run it across the whole queue.
+- The Quick Optimize **queue survives reloads**: imports, results and failures are kept in this browser, failed rows get a Retry button, and a Clear button resets the list.
+- The browser smoke suite now runs in CI (GitHub Pages deploys are gated on it) and grew to 41 checks covering all of the above.
 
 ## v0.1.2
 
@@ -34,6 +37,8 @@ Image decoding, resizing, and encoding happen in your browser using standard bro
 - Optional batch Studio preset: cut every photo out and place it on a backdrop — Marketplace white 1:1, Social 4:5, Banner 16:9, Catalog 4:3, Transparent PNG, or the setup of the photo currently open in Photo Studio — then export with the shared recipes
 - Before/after previews, byte statistics, and the actual recipe retained for each processed image
 - Saved projects in Photo Studio: reopen a photo with its cutout, edits and scene after any reload (browser-local IndexedDB, nothing leaves the browser)
+- Reusable look templates: named frame/backdrop/shadow/light looks, applicable to any photo or the whole queue
+- The batch queue itself is kept across reloads, with outcomes preserved, per-row retry, and a clear button
 - Light and dark presentation
 
 ## Photo Studio
@@ -49,7 +54,7 @@ Photo Studio is a browser-local, non-destructive product-photo editor. Work thro
 
 The same scene, backdrop, shadow and light settings can be captured as **My Studio setup** and applied to the whole Quick Optimize queue.
 
-The **Projects** section of the Export panel saves any photo with its layers and look into this browser and reopens it exactly as it was saved — the reopened export is byte-identical.
+The **Projects** section of the Export panel saves any photo with its layers and look into this browser and reopens it exactly as it was saved — the reopened export is byte-identical. The **Templates** section of the Scene panel saves the current look under a name and applies it to any photo; saved templates also appear in Quick Optimize's batch preset list.
 
 Light, Color, Transform and Crop adjustments work at any point. Every step is undoable, before/after comparison is available throughout, and the original file is never modified. The subject is kept as layers (photo pixels plus a cutout matte), so you can redo the cutout, refine it, clean up the photo or enhance it without losing your scene settings. AI previews are never written into history or exports until accepted.
 

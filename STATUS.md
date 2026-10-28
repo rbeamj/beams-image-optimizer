@@ -3,7 +3,7 @@
 Durable record of where the project actually is, so a new session can resume without chat history.
 Update this file at the end of any working session; keep it factual and dated.
 
-**Last verified: 2026-10-27** (v0.2.0 deployed: batch Studio presets, one shared export renderer, three Studio bugs fixed, projects save/reopen; `npm run typecheck` + `npm run smoke` shipped; dev + production QA green).
+**Last verified: 2026-10-27** (v0.2.0 deployed: batch presets, projects, templates, durable queue, one shared export renderer, three Studio bugs fixed; typecheck + 41-check smoke shipped and wired into CI; dev + production QA green).
 
 ## Version and remotes
 
@@ -22,14 +22,16 @@ The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__bat
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 21 files, **201 tests passed** (~0.4 s) |
-| `npm run build` | passes; `dist/` ≈ 388 kB JS + 195 kB ORT worker, gzip 122 kB + 24 kB |
+| `npm test` | 23 files, **216 tests passed** (~0.5 s) |
+| `npm run build` | passes; `dist/` ≈ 390 kB JS + 195 kB ORT worker, gzip 122 kB + 24 kB |
 | `npm run dev` | boots clean; app loads with **no console errors** |
 | Studio UI | all 10 panels present: Cutout, Refine, Cleanup, Enhance, Scene, Light, Color, Transform, Crop, Export |
 | fp16 WebGPU | **verified** 2026-10-27 on Intel UHD 770 (`gen-12lp`, `shader-f16`); Quality 1024 fp16 7.7 s warm, ~1.9× faster than fp32, matte matches fp32 (mean Δ 0.014/255) |
 | Batch Studio presets | **verified** 2026-10-27 in real Chrome over CDP (same iGPU): consent gate, 5 presets, cancel mid-batch, transparency, "My Studio setup", **0 console errors**; parity vs Studio export mean Δ 0.216/255, 0% of pixels over 2/255 (same renderer) |
 | Projects | **verified** 2026-10-27 over CDP with a real fp16 cutout: save → reload → reopen restores matte, removal metadata, scene and look; export **byte-identical** (3,507,939 bytes both sides); smoke covers the no-AI round-trip the same way |
-| `npm run smoke` | **verified** 2026-10-27: **28/28** browser checks in ~5.8 s (boot, opt-in persistence across reload, quick optimize, 10 panels, mid-decode preset race, overlay single-reference, export subject/overlay/adjustments, project save/reload/reopen byte-identity, 0 console errors) |
+| Templates | **verified** 2026-10-27 via `npm run smoke`: save from a tuned photo → apply to a *different* photo (frame, exposure and scene all carried over) → appears in the batch preset list with a working `template:` value |
+| Durable queue | **verified** 2026-10-27 via `npm run smoke`: imports, results and a decode-failed row survive a reload; Retry reprocesses and reports; Clear resets. Immediate writes (no debounce) after the starvation bug was found by the probe harness |
+| `npm run smoke` | **verified** 2026-10-27: **41/41** browser checks in ~8 s (boot, opt-in persistence, quick optimize, 10 panels, mid-decode preset race, overlay single-reference, export purity, adjustments, project round-trip byte-identity, templates, queue persistence/retry/clear, 0 console errors) |
 
 ## What is actually built
 
@@ -60,7 +62,13 @@ Light/Color/Transform/Crop work at any step; undo/redo, before-after, zoom/pan, 
 Subject stays layered (photo pixels + matte) so cutout/cleanup/enhance can be redone without losing scene settings.
 Since v0.2.0 the **Projects** section of the Export panel saves that whole layered state (base + matte blobs,
 before/after reference, original file, adjustments, crop, scene, backdrop) into IndexedDB and reopens it exactly
-as saved — verified byte-identical, with and without a cutout. Undo history is not persisted.
+as saved — verified byte-identical, with and without a cutout. Undo history is not persisted. The **Templates**
+section of the Scene panel saves the current look under a name (scene, backdrop with its image blob, shadow,
+light settings, cutout choice) and applies it to any photo; saved templates also appear in Quick Optimize's
+batch preset list and run across the queue through the same batch pipeline. In Quick Optimize, the queue itself
+persists: imports, processed results (with their recipe) and failures survive reloads in IndexedDB, failed rows
+can be retried with the current recipe and preset, and Clear resets the list. Queue writes are immediate —
+Blob fields are stored as references, so writes are cheap.
 
 Measured on a GTX 1080 Ti (Pascal, no `shader-f16`), 2048 MB WebGPU buffer:
 cutout warm 2.3 s (Quality 1024 fp32), cold page 6.5–10 s; Magic Click 0.29 s after the first; cleanup 0.39 s warm;
@@ -73,8 +81,10 @@ Also measured on Intel UHD 770 (`shader-f16`): Quality 1024 fp16 7.9 s total / 7
 | Area | State |
 | --- | --- |
 | AI opt-in friction | **Cleared 2026-10-27 — the earlier note here was stale**: the opt-in has always persisted per browser via localStorage (`beams-bg-removal-ack-v1`, `beams-enhance-license-ack-v1`, plus the removal-mode choice and per-device planner memory). Reload test: gates stay hidden, keys survive, batch gate stays closed. Guarded by `npm run smoke` |
-| Batch studio edits / templates | **Shipped 2026-10-27 (v0.2.0)** — presets across the queue incl. "My Studio setup", headless composition parity-verified against Studio export (mean Δ 0.216/255, 0% of pixels over 2/255). Per-photo editing stays single-image; crops, Magic Click and cleanup edits are not part of a captured preset |
-| Project save/load | **Shipped 2026-10-27 (v0.2.0)** — projects persist in IndexedDB with layers (base + matte), before/after reference, original file, adjustments, crop, scene, backdrop; reopen is byte-identical. Not persisted: undo history. Template management beyond "My Studio setup" is still open |
+| Batch studio edits / templates | **Shipped 2026-10-27 (v0.2.0)** — presets across the queue incl. "My Studio setup" and now saved look templates, headless composition parity-verified against Studio export (mean Δ 0.216/255, 0% of pixels over 2/255). Per-photo editing stays single-image; crops, Magic Click and cleanup edits are not part of a preset or template |
+| Project save/load | **Shipped 2026-10-27 (v0.2.0)** — projects persist in IndexedDB with layers (base + matte), before/after reference, original file, adjustments, crop, scene, backdrop; reopen is byte-identical. Not persisted: undo history |
+| Reusable templates | **Shipped 2026-10-27 (v0.2.0)** — named looks (scene, backdrop + image blob, shadow, light settings, cutout choice) saved in IndexedDB, applicable to any photo in Studio or across the queue; image backdrops get a fresh object URL at run time |
+| Batch queue persistence | **Shipped 2026-10-27 (v0.2.0)** — imports, results (with recipe) and failures survive reloads; per-row Retry with the current recipe/preset; Clear resets. Writes are immediate (a debounced write starved under batch bursts and died with the page) |
 | Layers, text, shapes, stickers | Not implemented (deliberately deferred in Tranche 1) |
 | Scene generation | Deterministic backdrops only; no generative scenes (kept out on purpose: privacy + licensing) |
 | Export formats | JPEG/PNG/WebP only; no AVIF/JXL/PDF/social-size matrices |
@@ -82,8 +92,8 @@ Also measured on Intel UHD 770 (`shader-f16`): Quality 1024 fp16 7.9 s total / 7
 | fp16 WebGPU paths | **Verified** on Intel UHD 770 — Auto picks Quality 1024 fp16, ~1.9× faster than fp32, output matches fp32. Apple Silicon and AMD `shader-f16` hardware remain unmeasured |
 | Integrated-GPU speed | An iGPU with fp16 is still slower than a discrete GPU: 7.7 s vs 2.1 s model-only for Quality 1024. Expect 4–8 s per cutout on integrated graphics, not sub-second |
 | WASM threading | Single-threaded on static hosting; real threads need COOP/COEP, which GitHub Pages cannot send |
-| Test coverage | 191 unit/logic tests plus `npm run smoke` (23 browser checks over CDP) for the controller surface; the smoke is manual-trigger and needs `npm run dev` + local Chrome — it does not run in CI |
-| Tooling | `npm run typecheck` (`tsc -b`) and `npm run smoke` shipped 2026-10-27; lint/format still absent |
+| Test coverage | 216 unit/logic tests plus `npm run smoke` (41 browser checks over CDP) for the controller, persistence and export surfaces; the smoke runs locally against `npm run dev` + Chrome and **in CI** (the Pages deploy is gated on it) |
+| Tooling | `npm run typecheck` (`tsc -b`) and `npm run smoke` (local + CI) shipped 2026-10-27; lint/format still absent |
 
 ## Licensing posture
 
@@ -148,12 +158,15 @@ in the repo (`npm run smoke`).
 
 ```sh
 npm install
-npm test            # 201 unit/logic tests
+npm test            # 216 unit/logic tests
 npm run typecheck   # tsc -b (same check the build runs, without vite)
 npm run build       # production build into dist/
 npm run dev         # http://localhost:5173 — keep it running, then:
-npm run smoke       # 28 browser checks (needs the dev server + a local Chrome; CHROME_PATH overrides)
+npm run smoke       # 41 browser checks (needs the dev server + a local Chrome; CHROME_PATH overrides)
 ```
+
+The smoke suite also runs in CI: the Pages workflow installs Chrome, boots the dev server, and blocks the
+deploy on all 41 checks passing.
 
 Windows PowerShell: use `npm.cmd` if `npm.ps1` is blocked. Dev-only QA hooks: `window.__studio`
 (`layers()`, `src()`, `scene()`, `objects()`, `refilter()`) and `window.__batch` (`rows()`, `file(i)`)
@@ -161,7 +174,7 @@ are available in development builds only.
 
 ## Suggested next steps (not started)
 
-1. A reusable template library beyond "My Studio setup" — named scene/backdrop/light looks applicable to any photo or queue.
-2. Save/cancel the batch queue itself across reloads, and per-row retry for failed photos.
-3. Run `npm run smoke` in CI (needs a Chrome install in the Pages workflow; it is manual-trigger only today).
-4. Lint/format tooling on top of the existing typecheck + smoke.
+1. Undo history as part of saved projects (a reopen currently starts history fresh).
+2. A queue-level "apply template" that also reprocesses already-done rows in one pass.
+3. Lint/format tooling on top of the existing typecheck + smoke.
+4. Additional marketplace export presets where the framing rules are documented.

@@ -50,23 +50,30 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
 - `npm run typecheck` and `npm run smoke` (a 23-check browser regression suite over the DevTools protocol, no
   extra dependencies) guard the controller surface, the opt-in persistence, and the fixes above
 
-### Projects (v0.2.0)
+### Projects, templates, and a durable queue (v0.2.0)
 
-- Save the open Studio photo as a project in this browser (IndexedDB): subject layers (base pixels + cutout
-  matte), the before/after reference, the original file, adjustments, crop, scene and backdrop
-- Reopen from the Export panel after any reload; the reopened export is byte-identical to the pre-save export
-  (verified both with and without an AI cutout)
-- Every record is validated on read, so a corrupt or version-skewed row can never reach the editor
-- Undo history is not persisted, and a template library beyond "My Studio setup" remains future work
+- Projects: save the open Studio photo as a project in this browser (IndexedDB) — subject layers (base
+  pixels + cutout matte), the before/after reference, the original file, adjustments, crop, scene and
+  backdrop. Reopen from the Export panel after any reload; the reopened export is byte-identical to the
+  pre-save export (verified both with and without an AI cutout)
+- Templates: save the current look (scene, backdrop, shadow, light settings, cutout choice) under a name;
+  apply it to any photo in Photo Studio, or run it across the Quick Optimize queue from the batch preset
+  list. Image backdrops persist with their blob
+- The Quick Optimize queue survives reloads: imports, results (with their recipe) and failures are kept in
+  IndexedDB, failed rows get a Retry button that reprocesses with the current recipe and preset, and a
+  Clear button resets the list
+- Every stored record (projects, templates, queue rows) is validated on read, so corrupt or version-skewed
+  rows can never reach the editor; queue writes are immediate because Blob fields are stored as references
+- Undo history is not persisted yet, and templates do not carry crops or per-photo edits (deliberate:
+  a template is a look, not a photo)
 
 ## Next
 
 Ordered by expected value, not committed for any release:
 
-- A reusable template library beyond "My Studio setup" — named scene/backdrop/light looks applicable to any photo
 - Additional marketplace export presets where the framing rules are documented
-- Save/cancel the batch queue across reloads, and per-row retry for failed photos
-- Run the smoke suite in CI (needs a Chrome install in the Pages workflow)
+- Undo history as part of saved projects (a reopen currently starts history fresh)
+- A queue-level "apply template" that also works on already-processed rows in one pass
 
 ## Longer term
 
