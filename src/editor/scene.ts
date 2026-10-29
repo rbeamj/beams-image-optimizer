@@ -1,4 +1,4 @@
-export type FrameAspect = 'product' | '1:1' | '4:5' | '4:3' | '16:9';
+export type FrameAspect = 'product' | '1:1' | '4:5' | '4:3' | '16:9' | '2:3';
 export type BackdropFit = 'cover' | 'contain';
 export type ShadowStyle = 'none' | 'drop' | 'ground';
 export type ShadowSettings = { style: ShadowStyle; opacity: number; blur: number; distance: number };
@@ -23,6 +23,7 @@ const ASPECT_RATIOS: Record<Exclude<FrameAspect, 'product'>, number> = {
   '4:5': 0.8,
   '4:3': 4 / 3,
   '16:9': 16 / 9,
+  '2:3': 2 / 3,
 };
 
 export function defaultScene(): SceneSettings {

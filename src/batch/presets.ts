@@ -30,7 +30,7 @@ export type BatchPreset = {
   backdropImage?: HTMLImageElement;
 };
 
-export type BuiltInPresetId = 'marketplace' | 'social' | 'banner' | 'catalog' | 'transparent' | 'amazon-white' | 'ebay-white' | 'shopify-white' | 'etsy-white' | 'walmart-white' | 'transparent-max';
+export type BuiltInPresetId = 'marketplace' | 'social' | 'banner' | 'catalog' | 'transparent' | 'amazon-white' | 'ebay-white' | 'shopify-white' | 'etsy-white' | 'walmart-white' | 'facebook-marketplace' | 'google-shopping' | 'pinterest' | 'instagram-shopping' | 'target' | 'wayfair' | 'transparent-max';
 
 const fromScenePreset = (id: ScenePreset): BatchPreset => {
   const source = SCENE_PRESETS[id];
@@ -81,6 +81,18 @@ export const BATCH_PRESETS: Record<BuiltInPresetId, BatchPreset> = {
   //   2200×2200 recommended, JPEG under 5 MB (Walmart Marketplace,
   //   "Item image guidelines"). This preset ships exactly at the 2200px recommendation;
   //   the Studio export ceiling is 2200 to match it.
+  // Facebook Marketplace — white background recommended, minimum 1024px, square format,
+  //   JPEG or PNG (Facebook Commerce, "Product photo requirements").
+  // Google Shopping — white background required, 250px minimum, up to 6400px, square
+  //   recommended, JPEG/PNG (Google Merchant Center, "Image requirements").
+  // Pinterest — 2:3 aspect ratio recommended (1000×1500px minimum), lifestyle images
+  //   allowed, JPEG/PNG (Pinterest Business, "Image guidelines").
+  // Instagram Shopping — square 1:1, 1080×1080px recommended, JPEG/PNG
+  //   (Instagram Shopping, "Image requirements").
+  // Target — pure white background required, 1500×1500px minimum, JPEG
+  //   (Target Partners, "Image requirements").
+  // Wayfair — white background required, 1000×1000px minimum, JPEG/PNG
+  //   (Wayfair Partner, "Image guidelines").
   'amazon-white': {
     ...fromScenePreset('marketplace'),
     id: 'amazon-white',
@@ -120,6 +132,55 @@ export const BATCH_PRESETS: Record<BuiltInPresetId, BatchPreset> = {
     mode: 'quality',
     cleanup: 'balanced',
     recipe: { format: 'jpeg', quality: .9, maxEdge: 2200 },
+  },
+  'facebook-marketplace': {
+    ...fromScenePreset('marketplace'),
+    id: 'facebook-marketplace',
+    label: 'Facebook Marketplace',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 1024 },
+  },
+  'google-shopping': {
+    ...fromScenePreset('marketplace'),
+    id: 'google-shopping',
+    label: 'Google Shopping 2K',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 2048 },
+  },
+  'pinterest': {
+    ...fromScenePreset('marketplace'),
+    id: 'pinterest',
+    label: 'Pinterest 2:3',
+    mode: 'quality',
+    cleanup: 'balanced',
+    scene: { ...fromScenePreset('marketplace').scene, aspect: '2:3' },
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 1500 },
+  },
+  'instagram-shopping': {
+    ...fromScenePreset('marketplace'),
+    id: 'instagram-shopping',
+    label: 'Instagram Shopping 1K',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 1080 },
+  },
+  'target': {
+    ...fromScenePreset('marketplace'),
+    id: 'target',
+    label: 'Target white 1500',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 1500 },
+  },
+  'wayfair': {
+    ...fromScenePreset('marketplace'),
+    id: 'wayfair',
+    label: 'Wayfair white 1K',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 1000 },
   },
   'transparent-max': {
     id: 'transparent-max',
