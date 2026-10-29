@@ -30,7 +30,7 @@ export type BatchPreset = {
   backdropImage?: HTMLImageElement;
 };
 
-export type BuiltInPresetId = 'marketplace' | 'social' | 'banner' | 'catalog' | 'transparent' | 'amazon-white' | 'ebay-white' | 'shopify-white' | 'etsy-white' | 'walmart-white' | 'facebook-marketplace' | 'google-shopping' | 'pinterest' | 'instagram-shopping' | 'target' | 'wayfair' | 'transparent-max';
+export type BuiltInPresetId = 'marketplace' | 'social' | 'banner' | 'catalog' | 'transparent' | 'amazon-white' | 'ebay-white' | 'shopify-white' | 'etsy-white' | 'walmart-white' | 'facebook-marketplace' | 'google-shopping' | 'pinterest' | 'instagram-shopping' | 'target' | 'wayfair' | 'tiktok-shop' | 'poshmark' | 'depop' | 'mercari' | 'grailed' | 'vinted' | 'transparent-max';
 
 const fromScenePreset = (id: ScenePreset): BatchPreset => {
   const source = SCENE_PRESETS[id];
@@ -181,6 +181,56 @@ export const BATCH_PRESETS: Record<BuiltInPresetId, BatchPreset> = {
     mode: 'quality',
     cleanup: 'balanced',
     recipe: { format: 'jpeg', quality: .9, maxEdge: 1000 },
+  },
+  'tiktok-shop': {
+    ...fromScenePreset('marketplace'),
+    id: 'tiktok-shop',
+    label: 'TikTok Shop 800',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 800 },
+  },
+  'poshmark': {
+    ...fromScenePreset('marketplace'),
+    id: 'poshmark',
+    label: 'Poshmark 1200',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 1200 },
+  },
+  'depop': {
+    ...fromScenePreset('marketplace'),
+    id: 'depop',
+    label: 'Depop 4:5',
+    mode: 'quality',
+    cleanup: 'balanced',
+    scene: { ...fromScenePreset('marketplace').scene, aspect: '4:5' },
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 1350 },
+  },
+  'mercari': {
+    ...fromScenePreset('marketplace'),
+    id: 'mercari',
+    label: 'Mercari 1200',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 1200 },
+  },
+  'grailed': {
+    ...fromScenePreset('marketplace'),
+    id: 'grailed',
+    label: 'Grailed 1200',
+    mode: 'quality',
+    cleanup: 'balanced',
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 1200 },
+  },
+  'vinted': {
+    ...fromScenePreset('marketplace'),
+    id: 'vinted',
+    label: 'Vinted 4:5',
+    mode: 'quality',
+    cleanup: 'balanced',
+    scene: { ...fromScenePreset('marketplace').scene, aspect: '4:5' },
+    recipe: { format: 'jpeg', quality: .9, maxEdge: 1350 },
   },
   'transparent-max': {
     id: 'transparent-max',

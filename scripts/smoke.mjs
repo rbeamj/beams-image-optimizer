@@ -366,7 +366,7 @@ async function main() {
     // 4b — combined presets carry their own recipe; per-row actions make A/B comparison possible
     const comboOptions = await cdp.evaluate(`[...document.querySelectorAll('#batch-preset-select optgroup')].map(g => ({ label: g.label, values: [...g.querySelectorAll('option')].map(o => o.value) }))`);
     const combos = comboOptions.find(g => /Marketplace combos/.test(g.label));
-    check('preset: marketplace combos grouped with all 12 options', JSON.stringify(combos?.values) === JSON.stringify(['amazon-white', 'ebay-white', 'shopify-white', 'etsy-white', 'walmart-white', 'facebook-marketplace', 'google-shopping', 'pinterest', 'instagram-shopping', 'target', 'wayfair', 'transparent-max']), JSON.stringify(comboOptions));
+    check('preset: marketplace combos grouped with all 18 options', JSON.stringify(combos?.values) === JSON.stringify(['amazon-white', 'ebay-white', 'shopify-white', 'etsy-white', 'walmart-white', 'facebook-marketplace', 'google-shopping', 'pinterest', 'instagram-shopping', 'target', 'wayfair', 'tiktok-shop', 'poshmark', 'depop', 'mercari', 'grailed', 'vinted', 'transparent-max']), JSON.stringify(comboOptions));
     const shopifyHint = await cdp.evaluate(`window.__s.selectPreset('shopify-white')`);
     check('preset: Shopify white 2K bundles its cutout tier and recipe', /Quality 1024 cutout with balanced edges/.test(shopifyHint.hint) && /Exports JPEG · 90% · 2K/.test(shopifyHint.hint), shopifyHint.hint);
     const amazonHint = await cdp.evaluate(`window.__s.selectPreset('amazon-white')`);

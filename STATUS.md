@@ -3,7 +3,7 @@
 Durable record of where the project actually is, so a new session can resume without chat history.
 Update this file at the end of any working session; keep it factual and dated.
 
-**Last verified: 2026-10-29** (dev branch: **Hallmark redesign** — unified workbench (soft tone, sage anchor) with per-row AI tools (Magic Click + MI-GAN cleanup), marketplace presets as visual cards, dev hooks fixed for smoke tests; Walmart 2200 ceiling raised + Walmart preset ships at 2200, six marketplace combos with bundled recipes + grouped dropdown, stored-matte reuse making queue re-runs skip the AI cutout, Biome lint — all verified; `main` last published at run #16 / commit `9130674`; work waits on `dev` until the user asks to publish).
+**Last verified: 2026-10-29** (dev branch: **Hallmark redesign** — unified workbench (soft tone, sage anchor) with per-row AI tools (Magic Click + MI-GAN cleanup), marketplace presets as visual cards, dev hooks fixed for smoke tests; **18 marketplace combos** (Amazon, eBay, Shopify, Etsy, Walmart, Facebook Marketplace, Google Shopping, Pinterest 2:3, Instagram Shopping, Target, Wayfair, **TikTok Shop 800, Poshmark 1200, Depop 4:5, Mercari 1200, Grailed 1200, Vinted 4:5**) with documented rules from each marketplace; **2:3 & 4:5 aspect ratios** support; Walmart 2200 ceiling raised + Walmart preset ships at 2200, stored-matte reuse making queue re-runs skip the AI cutout, Biome lint — all verified; `main` last published at run #16 / commit `9130674`; work waits on `dev` until the user asks to publish).
 
 ## Version and remotes
 
@@ -12,7 +12,7 @@ Update this file at the end of any working session; keep it factual and dated.
 | Version | `0.2.0` (`package.json`) |
 | Local `main` | `9130674` — *Add Shopify/Etsy/Walmart presets, stored-matte reuse, and Biome lint* |
 | GitHub `main` | `9130674` (in sync) |
-| Branches | **`dev` is the development branch**: work lands and is pushed there to save progress. Merge `dev` → `main` and push `main` to publish — the Pages deploy runs on push to `main` only. As of 2026-10-29, `dev` (`eca3bbd`) is **3 commits ahead** of `main` (Walmart 2200 ceiling raise + preset label + docs; per-row AI tools Magic Click + Cleanup; Hallmark redesign). `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged into main long ago, safe to delete |
+| Branches | **`dev` is the development branch**: work lands and is pushed there to save progress. Merge `dev` → `main` and push `main` to publish — the Pages deploy runs on push to `main` only. As of 2026-10-29, `dev` (`f8b6c2e`) is **5 commits ahead** of `main` (Walmart 2200 ceiling raise + preset label + docs; per-row AI tools Magic Click + Cleanup; Hallmark redesign; 12 marketplace combos + 2:3 aspect; 6 more marketplace presets: TikTok, Poshmark, Depop, Mercari, Grailed, Vinted + 4:5 aspect). `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged into main long ago, safe to delete |
 | Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — verified live 2026-10-28: serves `index-D0joM-3N.js` (398.91 kB) from `main` at `9130674` (Pages run **#16, success**: build + smoke + deploy green) — this build **includes** the Shopify/Etsy/Walmart combined presets, stored-matte reuse, and Biome lint. The **Walmart 2200 ceiling raise** is on `dev` (bundle `index-D4BPEJqY.js`), not yet published |
 | Open issues / PRs | none |
 
