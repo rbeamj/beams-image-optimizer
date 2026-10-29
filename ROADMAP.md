@@ -114,7 +114,7 @@ actually shipped and verified, see [STATUS.md](STATUS.md).
 
 Ordered by expected value, not committed for any release:
 
-- Per-photo AI tools (Magic Click refinement, Cleanup) in the batch queue, with manual control
+- ~~Per-photo AI tools (Magic Click refinement, Cleanup) in the batch queue, with manual control~~ ✅ **Done 2026-10-28**: inline expandable panels per queue row with cutout
 - More marketplace presets where the framing rules are documented
 - Persist more undo history per project (currently capped at ten snapshots) if storage profiling allows
 

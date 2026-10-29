@@ -3,7 +3,7 @@
 Durable record of where the project actually is, so a new session can resume without chat history.
 Update this file at the end of any working session; keep it factual and dated.
 
-**Last verified: 2026-10-28** (dev branch: Walmart 2200 ceiling raised + Walmart preset ships at 2200, six marketplace combos with bundled recipes + grouped dropdown, stored-matte reuse making queue re-runs skip the AI cutout, Biome lint — all verified; `main` last published at run #16 / commit `9130674`; work waits on `dev` until the user asks to publish).
+**Last verified: 2026-10-28** (dev branch: **per-row AI tools** — Magic Click refinement & MI-GAN cleanup with inline expandable panels in each queue row; Walmart 2200 ceiling raised + Walmart preset ships at 2200, six marketplace combos with bundled recipes + grouped dropdown, stored-matte reuse making queue re-runs skip the AI cutout, Biome lint — all verified; `main` last published at run #16 / commit `9130674`; work waits on `dev` until the user asks to publish).
 
 ## Version and remotes
 
@@ -12,7 +12,7 @@ Update this file at the end of any working session; keep it factual and dated.
 | Version | `0.2.0` (`package.json`) |
 | Local `main` | `9130674` — *Add Shopify/Etsy/Walmart presets, stored-matte reuse, and Biome lint* |
 | GitHub `main` | `9130674` (in sync) |
-| Branches | **`dev` is the development branch**: work lands and is pushed there to save progress. Merge `dev` → `main` and push `main` to publish — the Pages deploy runs on push to `main` only. As of 2026-10-28, `dev` (`d2ac4c9`) is **1 commit ahead** of `main` (Walmart 2200 ceiling raise + preset label + docs). `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged into main long ago, safe to delete |
+| Branches | **`dev` is the development branch**: work lands and is pushed there to save progress. Merge `dev` → `main` and push `main` to publish — the Pages deploy runs on push to `main` only. As of 2026-10-28, `dev` (`3fca67b`) is **2 commits ahead** of `main` (Walmart 2200 ceiling raise + preset label + docs; per-row AI tools Magic Click + Cleanup). `feature/photo-studio-core-tools` (`ad869aa`), `feature/photo-studio-foundation` (`5af4df4`) — both merged into main long ago, safe to delete |
 | Hosted site | https://rbeamj.github.io/beams-image-optimizer/ — verified live 2026-10-28: serves `index-D0joM-3N.js` (398.91 kB) from `main` at `9130674` (Pages run **#16, success**: build + smoke + deploy green) — this build **includes** the Shopify/Etsy/Walmart combined presets, stored-matte reuse, and Biome lint. The **Walmart 2200 ceiling raise** is on `dev` (bundle `index-D4BPEJqY.js`), not yet published |
 | Open issues / PRs | none |
 
@@ -36,6 +36,7 @@ The two dev-only QA hooks (`window.__studio.objects()/refilter()`, `window.__bat
 | `npm test` | 24 files, **227 tests passed** (~0.6 s) |
 | `npm run build` | passes; `dist/` ≈ 403 kB JS + 195 kB ORT worker, gzip 126 kB + 24 kB |
 | `npm run smoke` | **verified** 2026-10-28: **52/52** browser checks in ~9 s (boot, opt-in persistence, quick optimize, marketplace-combo grouping + Shopify hint, combined-preset recipe override, result thumbnails, Copy/Process/Remove per-row actions, 10 panels, mid-decode preset race, overlay single-reference, export purity, adjustments, in-session undo/redo byte-identity, project round-trip + history, templates, queue persistence/retry/clear, 0 console errors) |
+| Per-row AI tools | **verified** 2026-10-28: Magic Click (MobileSAM) refinement + MI-GAN object cleanup as inline expandable panels on each batch queue row with cutout; click to add/remove areas, paint to remove objects, preview with Accept/Reject, Try another shape; state survives reloads via queue persistence; bundle 417.74 kB JS |
 
 ## What is actually built
 
@@ -44,9 +45,11 @@ quality control, 5 recipes, queue/cancel/download-all, before-after preview, per
 Since v0.2.0 an optional **Studio preset** applies to every queued photo: AI cutout plus frame/backdrop/shadow
 composition, exported with the shared recipes. Built-ins (Marketplace white 1:1, Social 4:5, Banner 16:9,
 Catalog 4:3, Transparent PNG) mirror the Studio scene buttons; **My Studio setup** captures whatever frame,
-backdrop, shadow, light settings and cutout choice the open Studio photo has. The batch pipeline
-(`src/batch/`) reuses the same adaptive removal engine (one shared warm session set), the same scene math
-(`src/editor/scene.ts`), and the headless fabric compositor (`src/editor/compose.ts`) that also renders
+backdrop, shadow, light settings and cutout choice the open Studio photo has. **Per-row AI tools** (Magic Click
+refinement + MI-GAN cleanup) appear as inline expandable panels on any row with a cutout: click to add/remove
+areas, paint to remove objects, preview with Accept/Reject/Try another; state persists with the queue record.
+The batch pipeline (`src/batch/`) reuses the same adaptive removal engine (one shared warm session set), the same
+scene math (`src/editor/scene.ts`), and the headless fabric compositor (`src/editor/compose.ts`) that also renders
 single-photo Studio exports since this session, so a batch export and a Studio export are the same
 renderer by construction (measured mean Δ 0.216/255, resampling only). Originals are never
 modified; savings compare against the user's input file, not the intermediate PNG.

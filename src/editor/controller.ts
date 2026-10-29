@@ -908,7 +908,6 @@ export function initEditor() {
     refreshOverlay: () => syncMaskOverlay(),
     blocked: () => !!cropFrame || removing || enhancing,
   });
-  if (import.meta.env.DEV) Object.assign(window, { __studio: { layers: () => ({ ...layers }), src: () => image?.getSrc(), scene: () => structuredClone(scene), history: () => history.stack(), objects: () => studio.getObjects().map(o => ({ type: o.type, isImage: o === image, visible: o.visible, opacity: o.opacity, left: Math.round(o.left ?? 0), top: Math.round(o.top ?? 0), scaleX: o.scaleX, width: o.width, height: o.height, clip: !!o.clipPath, cacheKey: (o as FabricImage).cacheKey })), refilter: (withFilters = true) => { if (!image) return; if (!withFilters) image.filters = []; image.applyFilters(); studio.requestRenderAll(); } } });
 
   const api = {
     load(file: File) { void load(file); },
@@ -933,6 +932,12 @@ export function initEditor() {
         backdropImage: backdrop.kind === 'image' ? backdropImages.get(backdrop.url) : undefined,
       };
     },
+    /** Current frame bounds for the dev hook. */
+    frame: () => frameBox ? { ...frameBox } : undefined,
+    /** Fabric canvas objects for the dev hook. */
+    objects: () => studio.getObjects().map(o => ({ type: o.type, left: o.left, top: o.top, width: o.width, height: o.height, scaleX: o.scaleX, scaleY: o.scaleY, angle: o.angle, clip: !!o.clipPath, isImage: o === image })),
+    /** Current scene settings for the dev hook. */
+    scene: () => structuredClone(scene),
     async exportFile() {
       if (!image) return undefined;
       // Render headlessly at native resolution instead of cropping the display canvas: fabric's
@@ -970,6 +975,5 @@ export function initEditor() {
     applyTemplate,
     dispose() { if (objectUrl) URL.revokeObjectURL(objectUrl); for (const url of generatedUrls) URL.revokeObjectURL(url); generatedUrls.length = 0; aiTools.release(); removalEngine.release(); studio.dispose(); }
   };
-  if (import.meta.env.DEV) Object.assign((window as unknown as { __studio: object }).__studio, { exportFile: api.exportFile, frame: () => frameBox && { ...frameBox } });
   return api;
 }
